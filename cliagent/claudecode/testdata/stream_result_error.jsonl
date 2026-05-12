@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","session_id":"sess-err","cwd":"/tmp","model":"m","tools":[],"mcp_servers":[]}
+{"type":"result","subtype":"error_during_execution","session_id":"sess-err","error":"something broke"}

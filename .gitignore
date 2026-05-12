@@ -1,0 +1,19 @@
+.idea
+.claude
+.omc
+.DS_Store
+
+# Build artifacts
+coverage.out
+/agent-basic
+/agent-partial-resume
+/agent-subagent
+/claudecode-basic
+/claudecode-multiturn
+/claudecode-substream
+/codex-basic
+/coding
+example/coding/coding
+
+# Git worktrees
+.worktrees/

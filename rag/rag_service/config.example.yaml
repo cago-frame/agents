@@ -1,0 +1,45 @@
+server:
+  host: "0.0.0.0"
+  port: 8000
+  log_level: "info"               # 日志级别: debug | info | warning | error
+
+embedding:
+  provider: "openai"              # 嵌入提供商: openai | sentence_transformers | huggingface_api
+  openai:
+    api_key: ""                   # OpenAI API 密钥，也可通过 OPENAI_API_KEY 环境变量设置
+    base_url: "https://api.openai.com/v1"  # API 地址，兼容 OpenAI 接口的服务可替换此地址
+    model: "text-embedding-3-small"
+    dimensions: 1536              # 向量维度
+    batch_size: 100               # 批量嵌入大小
+  sentence_transformers:
+    model_name: "all-MiniLM-L6-v2"  # 本地模型名称
+    device: "cpu"                 # 计算设备: cpu | cuda
+    dimensions: 384
+  huggingface_api:
+    api_key: ""                   # HuggingFace API 密钥
+    model: "sentence-transformers/all-MiniLM-L6-v2"
+    api_url: "https://api-inference.huggingface.co/pipeline/feature-extraction"
+    dimensions: 384
+
+vectorstore:
+  provider: "elasticsearch"       # 向量存储后端: elasticsearch | chroma
+  elasticsearch:
+    hosts:
+      - "https://localhost:9200"
+    username: "elastic"
+    password: ""                  # 也可通过 ELASTICSEARCH_PASSWORD 环境变量设置
+    verify_certs: true            # 是否验证 SSL 证书
+    ca_certs: ""                  # CA 证书路径，也可通过 ELASTICSEARCH_CA_CERTS 环境变量设置
+    client_cert: ""               # 客户端证书路径（双向 TLS），也可通过 ELASTICSEARCH_CLIENT_CERT 环境变量设置
+    client_key: ""                # 客户端私钥路径（双向 TLS），也可通过 ELASTICSEARCH_CLIENT_KEY 环境变量设置
+    default_index_prefix: "rag_"  # 索引名称前缀
+    similarity: "cosine"          # 相似度算法: cosine | dot_product | l2_norm
+  chroma:
+    persist_directory: "./.chroma_data"  # ChromaDB 本地持久化存储路径
+    collection_prefix: "rag_"           # 集合名称前缀
+
+document:
+  chunker:
+    strategy: "recursive_character"  # 分块策略: recursive_character | token_based
+    chunk_size: 512                  # 每个分块的最大字符/Token 数
+    chunk_overlap: 64                # 相邻分块的重叠字符/Token 数

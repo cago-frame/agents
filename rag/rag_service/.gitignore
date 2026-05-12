@@ -1,0 +1,10 @@
+.claude
+.venv
+__pycache__/
+*.pyc
+
+config.yaml
+certs
+
+
+deal_repo

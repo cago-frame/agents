@@ -1,0 +1,8 @@
+{"type":"system","subtype":"init","session_id":"sess-sub","cwd":"/tmp","model":"m","tools":["Task","Read"],"mcp_servers":[]}
+{"type":"assistant","message":{"id":"m-parent","content":[{"type":"tool_use","id":"Ta1","name":"Task","input":{"description":"read file","prompt":"read /etc/hosts"}}]},"parent_tool_use_id":null}
+{"type":"assistant","message":{"id":"m-sub-1","content":[{"type":"tool_use","id":"r1","name":"Read","input":{"file_path":"/etc/hosts"}}]},"parent_tool_use_id":"Ta1"}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"r1","content":"127.0.0.1 localhost","is_error":false}]},"parent_tool_use_id":"Ta1"}
+{"type":"assistant","message":{"id":"m-sub-2","content":[{"type":"text","text":"file has 1 line"}]},"parent_tool_use_id":"Ta1"}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"Ta1","content":"file has 1 line","is_error":false}]},"parent_tool_use_id":null}
+{"type":"assistant","message":{"id":"m-parent-2","content":[{"type":"text","text":"done"}]},"parent_tool_use_id":null}
+{"type":"result","subtype":"success","session_id":"sess-sub","usage":{"input_tokens":5,"output_tokens":3}}
