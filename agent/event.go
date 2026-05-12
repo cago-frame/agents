@@ -24,11 +24,11 @@ const (
 	// appended to the conversation and will be visible to the LLM on the
 	// next request. Emitted once per consumed entry, in queue order, at the
 	// drain points inside runTurn. Carries the user-visible text in Delta
-	// (displayText if WithSteerDisplay was used, else the LLM text). UIs
-	// use this to finalize the current assistant bubble, insert the user
-	// turn, and open a fresh assistant stream — without it, queued messages
-	// silently bleed into the next LLM call and the UI can't tell the model
-	// reacted to them.
+	// (displayText if WithSteerDisplay was used, else the LLM text), and
+	// the queue identifier in SteerID. UIs use this to finalize the current
+	// assistant bubble, insert the user turn, and open a fresh assistant
+	// stream — without it, queued messages silently bleed into the next LLM
+	// call and the UI can't tell the model reacted to them.
 	EventSteerConsumed
 )
 
@@ -127,6 +127,7 @@ type Event struct {
 	Kind       EventKind
 	TurnID     string
 	Delta      string
+	SteerID    string
 	Tool       *ToolEvent
 	Usage      *Usage
 	Error      error

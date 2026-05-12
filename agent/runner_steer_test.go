@@ -198,21 +198,29 @@ func TestSteer_EmitsSteerConsumedEvent(t *testing.T) {
 
 	var kinds []agent.EventKind
 	var consumedDeltas []string
+	var consumedIDs []string
 	for ev := range events {
 		kinds = append(kinds, ev.Kind)
 		if ev.Kind == agent.EventPostToolUse {
-			if err := r.Steer(context.Background(), "llm-text", agent.WithSteerDisplay("display-text")); err != nil {
+			if err := r.Steer(context.Background(), "llm-text", agent.WithSteerID("q-consume"), agent.WithSteerDisplay("display-text")); err != nil {
 				t.Fatalf("steer: %v", err)
 			}
 			close(release)
 		}
 		if ev.Kind == agent.EventSteerConsumed {
 			consumedDeltas = append(consumedDeltas, ev.Delta)
+			consumedIDs = append(consumedIDs, ev.SteerID)
+			if r.RemovePendingSteer("q-consume") {
+				t.Fatalf("consumed steer should no longer be removable")
+			}
 		}
 	}
 
 	if len(consumedDeltas) != 1 || consumedDeltas[0] != "display-text" {
 		t.Fatalf("want one EventSteerConsumed carrying displayText, got %v", consumedDeltas)
+	}
+	if len(consumedIDs) != 1 || consumedIDs[0] != "q-consume" {
+		t.Fatalf("want one EventSteerConsumed carrying steer id, got %v", consumedIDs)
 	}
 
 	// 顺序：PostToolUse → SteerConsumed → TextDelta（turn 2 的回复）
@@ -229,6 +237,124 @@ func TestSteer_EmitsSteerConsumedEvent(t *testing.T) {
 	}
 	if post < 0 || consumed <= post || text <= consumed {
 		t.Fatalf("event order wrong: post=%d consumed=%d text=%d, kinds=%v", post, consumed, text, kinds)
+	}
+}
+
+func TestSteer_RemovePendingBeforeConsumption(t *testing.T) {
+	release := make(chan struct{})
+	prov := providertest.New().QueueStreamFunc(func(ctx context.Context) <-chan provider.StreamChunk {
+		ch := make(chan provider.StreamChunk, 2)
+		go func() {
+			defer close(ch)
+			ch <- provider.StreamChunk{ContentDelta: "working"}
+			select {
+			case <-release:
+			case <-ctx.Done():
+				return
+			}
+			ch <- provider.StreamChunk{FinishReason: provider.FinishStop}
+		}()
+		return ch
+	})
+
+	a := agent.New(prov)
+	conv := agent.NewConversation()
+	r := a.Runner(conv)
+	defer func() { _ = r.Close() }()
+
+	events, err := r.Send(context.Background(), "hi")
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
+
+	var once sync.Once
+	var consumed bool
+	for ev := range events {
+		if ev.Kind == agent.EventTextDelta {
+			once.Do(func() {
+				if err := r.Steer(context.Background(), "discard me", agent.WithSteerID("q-drop")); err != nil {
+					t.Errorf("steer: %v", err)
+				}
+				if !r.RemovePendingSteer("q-drop") {
+					t.Errorf("expected pending steer to be removed")
+				}
+				close(release)
+			})
+		}
+		if ev.Kind == agent.EventSteerConsumed {
+			consumed = true
+		}
+	}
+
+	if consumed {
+		t.Fatalf("removed steer should not emit EventSteerConsumed")
+	}
+	if r.RemovePendingSteer("q-drop") {
+		t.Fatalf("removed steer should not be removable twice")
+	}
+	for i := 0; i < conv.Len(); i++ {
+		m, _ := conv.MessageAt(i)
+		if m.Role == agent.RoleUser && textOfBlocks(m.Content) == "discard me" {
+			t.Fatalf("removed steer leaked into conversation: %+v", conv.Messages())
+		}
+	}
+}
+
+func TestSteer_ClearPendingBeforeConsumption(t *testing.T) {
+	release := make(chan struct{})
+	prov := providertest.New().QueueStreamFunc(func(ctx context.Context) <-chan provider.StreamChunk {
+		ch := make(chan provider.StreamChunk, 2)
+		go func() {
+			defer close(ch)
+			ch <- provider.StreamChunk{ContentDelta: "working"}
+			select {
+			case <-release:
+			case <-ctx.Done():
+				return
+			}
+			ch <- provider.StreamChunk{FinishReason: provider.FinishStop}
+		}()
+		return ch
+	})
+
+	a := agent.New(prov)
+	conv := agent.NewConversation()
+	r := a.Runner(conv)
+	defer func() { _ = r.Close() }()
+
+	events, err := r.Send(context.Background(), "hi")
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
+
+	var once sync.Once
+	var consumed []string
+	for ev := range events {
+		if ev.Kind == agent.EventTextDelta {
+			once.Do(func() {
+				if err := r.Steer(context.Background(), "one", agent.WithSteerID("q1")); err != nil {
+					t.Errorf("steer q1: %v", err)
+				}
+				if err := r.Steer(context.Background(), "two", agent.WithSteerID("q2")); err != nil {
+					t.Errorf("steer q2: %v", err)
+				}
+				got := r.ClearPendingSteers()
+				if strings.Join(got, ",") != "q1,q2" {
+					t.Errorf("cleared ids = %v, want [q1 q2]", got)
+				}
+				close(release)
+			})
+		}
+		if ev.Kind == agent.EventSteerConsumed {
+			consumed = append(consumed, ev.SteerID)
+		}
+	}
+
+	if len(consumed) > 0 {
+		t.Fatalf("cleared steers should not emit EventSteerConsumed, got %v", consumed)
+	}
+	if got := r.ClearPendingSteers(); len(got) != 0 {
+		t.Fatalf("second clear = %v, want empty", got)
 	}
 }
 

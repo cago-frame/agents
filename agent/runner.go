@@ -32,7 +32,15 @@ type Runner struct {
 type SteerOption func(*steerConfig)
 
 type steerConfig struct {
+	id          string
 	displayText string
+}
+
+// WithSteerID attaches a caller-owned identifier to a queued Steer message.
+// When the steer is consumed, EventSteerConsumed carries the same ID in
+// Event.SteerID so UIs can reconcile their pending queue with runner state.
+func WithSteerID(id string) SteerOption {
+	return func(c *steerConfig) { c.id = id }
 }
 
 // WithSteerDisplay attaches a DisplayTextBlock to the steer'd user
@@ -48,6 +56,7 @@ func WithSteerDisplay(displayText string) SteerOption {
 }
 
 type steerEntry struct {
+	id          string
 	text        string
 	displayText string
 }
@@ -321,6 +330,9 @@ func (r *Runner) Steer(ctx context.Context, text string, opts ...SteerOption) er
 	for _, o := range opts {
 		o(cfg)
 	}
+	if cfg.id == "" {
+		cfg.id = newConvID()
+	}
 	r.mu.Lock()
 	if !r.steerOpen {
 		r.mu.Unlock()
@@ -328,9 +340,37 @@ func (r *Runner) Steer(ctx context.Context, text string, opts ...SteerOption) er
 	}
 	r.mu.Unlock()
 	r.steerMu.Lock()
-	r.steerQueue = append(r.steerQueue, steerEntry{text: text, displayText: cfg.displayText})
+	r.steerQueue = append(r.steerQueue, steerEntry{id: cfg.id, text: text, displayText: cfg.displayText})
 	r.steerMu.Unlock()
 	return nil
+}
+
+// RemovePendingSteer removes queued Steer messages matching id before they
+// are consumed at a safe point. It returns false when id is empty or no pending
+// entry matched; already-consumed steers cannot be removed.
+func (r *Runner) RemovePendingSteer(id string) bool {
+	if id == "" {
+		return false
+	}
+	r.steerMu.Lock()
+	defer r.steerMu.Unlock()
+	if len(r.steerQueue) == 0 {
+		return false
+	}
+	next := r.steerQueue[:0]
+	removed := false
+	for _, e := range r.steerQueue {
+		if e.id == id {
+			removed = true
+			continue
+		}
+		next = append(next, e)
+	}
+	for i := len(next); i < len(r.steerQueue); i++ {
+		r.steerQueue[i] = steerEntry{}
+	}
+	r.steerQueue = next
+	return removed
 }
 
 func (r *Runner) drainSteer() []steerEntry {
@@ -342,6 +382,25 @@ func (r *Runner) drainSteer() []steerEntry {
 	out := r.steerQueue
 	r.steerQueue = nil
 	return out
+}
+
+// ClearPendingSteers drops all queued Steer messages that have not yet been
+// consumed and returns their IDs in queue order.
+func (r *Runner) ClearPendingSteers() []string {
+	r.steerMu.Lock()
+	defer r.steerMu.Unlock()
+	if len(r.steerQueue) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(r.steerQueue))
+	for _, e := range r.steerQueue {
+		if e.id != "" {
+			ids = append(ids, e.id)
+		}
+	}
+	clear(r.steerQueue)
+	r.steerQueue = nil
+	return ids
 }
 
 // consumeSteerQueue drains the steer queue, appends each entry as a user
@@ -368,7 +427,7 @@ func (r *Runner) appendAndEmitSteers(ctx context.Context, turnID string, pending
 		if shown == "" {
 			shown = e.text
 		}
-		ev := Event{Kind: EventSteerConsumed, TurnID: turnID, Delta: shown}
+		ev := Event{Kind: EventSteerConsumed, TurnID: turnID, Delta: shown, SteerID: e.id}
 		r.dispatcher.emit(ctx, ev)
 		if !yield(ev) {
 			return false
