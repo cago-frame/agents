@@ -118,7 +118,7 @@ func Plan(prov provider.Provider, cwd string, opts ...SubagentOption) subagent.E
 }
 
 // generalPurposeTools 计算 GeneralPurpose 子 agent 的工具集：
-// = NewSession(cwd) 的 Coding + grep/find/ls + 可选 web，**不含** todo / dispatch。
+// = NewSession(cwd) 的 Coding + grep/find/ls + 可选 web，**不含** task / dispatch。
 // 独立 tracker + jobs（不与父共享）。
 func generalPurposeTools(cwd string, search *websearchSpec, fetch *webfetchSpec) []tool.Tool {
 	sess := NewSession(cwd)

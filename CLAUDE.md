@@ -63,7 +63,7 @@ CI 跑 `golangci-lint` + `make test`。`example/` 下的 demo 不在 CI 里，�
 
 ### `tool/` — 编码工具子包
 
-每个 tool 一个子包（`read` / `write` / `edit` / `bash` / `grep` / `find` / `ls` / `todo` / `websearch` / `webfetch`），都暴露 `New(opts ...Option) agent.Tool`。`tool/state.ReadTracker` 跨 tool 共享：read 完成时记 `(path, mtime, size)`，edit / write 动手前 `Check()`，不命中报 `state.ErrNotRead`，stale 报 `state.ErrStale`。
+每个 tool 一个子包（`read` / `write` / `edit` / `bash` / `grep` / `find` / `ls` / `task` / `websearch` / `webfetch`），都暴露 `New(opts ...Option) agent.Tool`（`task` 是个 CRUD 工具组，导出 `NewCreate` / `NewList` / `NewGet` / `NewUpdate` / `NewDelete` + `NewSuite` 一次性返回 5 个）。`tool/state.ReadTracker` 跨 tool 共享：read 完成时记 `(path, mtime, size)`，edit / write 动手前 `Check()`，不命中报 `state.ErrNotRead`，stale 报 `state.ErrStale`。
 
 `bash.New(bash.Jobs(jm))` + input `run_in_background=true` → 把命令丢 `*bash.JobManager`，立即返 `shell_id`；配套 `bash.NewOutput(jm)` / `bash.NewKill(jm)` 暴露 `bash_output` / `kill_shell`；`JobManager.StopAll()` 批量收摊。
 

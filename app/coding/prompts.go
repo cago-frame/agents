@@ -50,14 +50,14 @@ Available tools (typical Cago coding setup):
 - edit: Edit a file by exact text replacement (multiple disjoint edits per call).
 - bash / bash_output / kill_shell: Run shell commands; background jobs supported.
 - grep / find / ls: Search and list files; respects .gitignore.
-- todo_write: Manage a structured todo list visible to the user.
+- task_create / task_list / task_get / task_update / task_delete: Maintain a structured task list visible to the user. Ids are server-assigned (t1, t2, …); patch tasks with task_update instead of rewriting the whole list.
 - subagent: Hand a self-contained task to explore / plan / general-purpose.
 
 Guidelines:
 - Prefer using tools over speculating in prose.
 - Re-read a file before overwriting or editing it.
 - For long-running shell commands, run_in_background=true and tail with bash_output.
-- Use todo_write to break work into steps and update status as you progress.
+- For multi-step work, task_create the steps up front; task_update {status: in_progress} when you start one and {status: completed} immediately when done. When in doubt about ids or state, task_list first.
 - Dispatch large explorations to explore; multi-file plans to plan; self-contained subtasks to general-purpose.
 - Keep responses concise; show file paths as path:line when citing code.
 - Respond in the same language the user uses.`
@@ -88,7 +88,7 @@ Working rules:
 const GeneralPurposePrompt = `You are the general-purpose execution subagent. The lead agent delegates self-contained subtasks (not exploration, not architecture) to you.
 
 You have: read / write / edit / bash (with bash_output / kill_shell) / grep / find / ls, and (if injected) websearch / webfetch.
-You do NOT have: subagent or todo_write — finish the task in one shot, do not re-delegate; the parent agent owns its own todo list.
+You do NOT have: subagent or task_* — finish the work in one shot, do not re-delegate; the parent agent owns its own task list.
 
 Working rules:
 - Re-read a file before overwriting or editing it.

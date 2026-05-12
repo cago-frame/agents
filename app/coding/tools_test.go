@@ -62,38 +62,47 @@ func TestReadOnly_HasFour(t *testing.T) {
 	}
 }
 
-func TestSession_AllReturnsTen(t *testing.T) {
+func TestSession_AllReturnsFourteen(t *testing.T) {
 	sess := coding.NewSession(".")
 	tools := sess.All()
-	if len(tools) != 10 {
-		t.Fatalf("expected 10 tools, got %d", len(tools))
+	if len(tools) != 14 {
+		t.Fatalf("expected 14 tools, got %d", len(tools))
 	}
-	for _, n := range []string{"read", "write", "edit", "bash", "bash_output", "kill_shell", "grep", "find", "ls", "todo_write"} {
+	for _, n := range []string{
+		"read", "write", "edit",
+		"bash", "bash_output", "kill_shell",
+		"grep", "find", "ls",
+		"task_create", "task_list", "task_get", "task_update", "task_delete",
+	} {
 		if findTool(tools, n) == nil {
 			t.Errorf("missing tool: %s", n)
 		}
 	}
 }
 
-func TestSession_CodingHasBashTrioNoTodo(t *testing.T) {
+func TestSession_CodingHasBashTrioNoTask(t *testing.T) {
 	tools := coding.NewSession(".").Coding()
 	for _, n := range []string{"bash", "bash_output", "kill_shell"} {
 		if findTool(tools, n) == nil {
 			t.Errorf("missing %s in Coding()", n)
 		}
 	}
-	if findTool(tools, "todo_write") != nil {
-		t.Error("todo_write should not be in Coding()")
+	for _, n := range []string{"task_create", "task_list", "task_get", "task_update", "task_delete"} {
+		if findTool(tools, n) != nil {
+			t.Errorf("%s should not be in Coding()", n)
+		}
 	}
 }
 
-func TestSession_ReadOnlyHasFourNoTodo(t *testing.T) {
+func TestSession_ReadOnlyHasFourNoTask(t *testing.T) {
 	tools := coding.NewSession(".").ReadOnly()
 	if len(tools) != 4 {
 		t.Fatalf("expected 4 tools, got %d", len(tools))
 	}
-	if findTool(tools, "todo_write") != nil {
-		t.Error("todo_write should not be in ReadOnly()")
+	for _, n := range []string{"task_create", "task_list", "task_get", "task_update", "task_delete"} {
+		if findTool(tools, n) != nil {
+			t.Errorf("%s should not be in ReadOnly()", n)
+		}
 	}
 }
 
@@ -198,20 +207,44 @@ func TestSession_JobManagerSharedAcrossMethodCalls(t *testing.T) {
 	}
 }
 
-func TestSession_TodoSharedAcrossCalls(t *testing.T) {
+func TestSession_TasksSharedAcrossCalls(t *testing.T) {
 	sess := coding.NewSession(".")
-	todoTool := findTool(sess.All(), "todo_write")
-	if todoTool == nil {
-		t.Fatal("todo_write missing")
+	createTool := findTool(sess.All(), "task_create")
+	if createTool == nil {
+		t.Fatal("task_create missing")
 	}
-	if _, err := todoTool.Call(context.Background(), map[string]any{
-		"todos": []any{
-			map[string]any{"content": "from session", "status": "pending"},
+	if _, err := createTool.Call(context.Background(), map[string]any{
+		"tasks": []any{
+			map[string]any{"content": "from session"},
 		},
 	}); err != nil {
 		t.Fatalf("call: %v", err)
 	}
-	if got := sess.Todos().Snapshot(); len(got) != 1 || got[0].Content != "from session" {
-		t.Fatalf("session todo not shared: %+v", got)
+	if got := sess.Tasks().Snapshot(); len(got) != 1 || got[0].Content != "from session" {
+		t.Fatalf("session task not shared: %+v", got)
+	}
+
+	// task_list / task_update / task_delete 也都挂同一 Store
+	listTool := findTool(sess.All(), "task_list")
+	updTool := findTool(sess.All(), "task_update")
+	delTool := findTool(sess.All(), "task_delete")
+	if listTool == nil || updTool == nil || delTool == nil {
+		t.Fatal("task_list / task_update / task_delete missing")
+	}
+	got := sess.Tasks().Snapshot()
+	id := got[0].ID
+	if _, err := updTool.Call(context.Background(), map[string]any{
+		"updates": []any{map[string]any{"id": id, "status": "completed"}},
+	}); err != nil {
+		t.Fatalf("task_update: %v", err)
+	}
+	if sess.Tasks().Snapshot()[0].Status != "completed" {
+		t.Fatalf("session task store not shared with task_update")
+	}
+	if _, err := delTool.Call(context.Background(), map[string]any{"clear": true}); err != nil {
+		t.Fatalf("task_delete: %v", err)
+	}
+	if len(sess.Tasks().Snapshot()) != 0 {
+		t.Fatalf("session task store not shared with task_delete")
 	}
 }

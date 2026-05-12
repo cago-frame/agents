@@ -215,8 +215,8 @@ import "github.com/cago-frame/agents/app/coding"
 tools := coding.Tools(cwd)        // 7 stateless tools: read+write+edit+bash+grep+find+ls
 tools := coding.ReadOnly(cwd)     // 4 read-only tools: read+grep+find+ls
 
-sess  := coding.NewSession(cwd)   // shared *state.ReadTracker + bash JobManager + todo.List
-tools := sess.All()               // 10 tools (7 stateless + bash_output + kill_shell + todo_write)
+sess  := coding.NewSession(cwd)   // shared *state.ReadTracker + bash JobManager + task.Store
+tools := sess.All()               // 14 tools (7 stateless + bash_output + kill_shell + task_create/list/get/update/delete)
 ```
 
 `coding.NewSession(cwd)` enforces Claude Code's read-before-edit invariant: `edit` / `write` against an existing file fails with `state.ErrNotRead` until `read` ran on that path; if mtime/size changed externally the next `edit` / `write` returns `state.ErrStale`. New-file `write` is exempt.

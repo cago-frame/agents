@@ -9,7 +9,7 @@ import (
 	"github.com/cago-frame/agents/tool/grep"
 	"github.com/cago-frame/agents/tool/ls"
 	"github.com/cago-frame/agents/tool/read"
-	"github.com/cago-frame/agents/tool/todo"
+	"github.com/cago-frame/agents/tool/task"
 	"github.com/cago-frame/agents/tool/webfetch"
 	"github.com/cago-frame/agents/tool/websearch"
 	"github.com/cago-frame/agents/tool/write"
@@ -32,7 +32,11 @@ func TestBuiltinTools_AdvertisePromptMeta(t *testing.T) {
 		"grep":        grep.New(grep.Cwd(".")),
 		"find":        find.New(find.Cwd(".")),
 		"ls":          ls.New(ls.Cwd(".")),
-		"todo_write":  todo.New(),
+		"task_create": task.NewCreate(),
+		"task_list":   task.NewList(),
+		"task_get":    task.NewGet(),
+		"task_update": task.NewUpdate(),
+		"task_delete": task.NewDelete(),
 		// websearch and webfetch implement PromptMeta; no provider required for metadata check.
 		"web_search": websearch.New(),
 		"web_fetch":  webfetch.New(),

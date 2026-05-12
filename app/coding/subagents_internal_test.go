@@ -4,12 +4,12 @@ import (
 	"testing"
 )
 
-func TestGeneralPurposeTools_NoDispatchNoTodo(t *testing.T) {
+func TestGeneralPurposeTools_NoDispatchNoTask(t *testing.T) {
 	tools := generalPurposeTools(".", nil, nil)
 	for _, tt := range tools {
 		switch tt.Name() {
-		case "todo_write":
-			t.Errorf("GP must not have todo_write")
+		case "task_create", "task_list", "task_get", "task_update", "task_delete":
+			t.Errorf("GP must not have %s", tt.Name())
 		case "subagent":
 			t.Errorf("GP must not have subagent")
 		}

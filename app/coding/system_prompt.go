@@ -174,7 +174,7 @@ func combinationGuidelines(names map[string]bool) []string {
 	hasGrep := names["grep"]
 	hasFind := names["find"]
 	hasLs := names["ls"]
-	hasTodo := names["todo_write"]
+	hasTask := names["task_create"]
 	hasDispatch := names["subagent"]
 
 	switch {
@@ -183,8 +183,8 @@ func combinationGuidelines(names map[string]bool) []string {
 	case hasBash && (hasGrep || hasFind || hasLs):
 		out = append(out, "Prefer grep/find/ls tools over bash for file exploration (faster, .gitignore aware).")
 	}
-	if hasTodo {
-		out = append(out, "Use todo_write to break work into steps and update status as you progress.")
+	if hasTask {
+		out = append(out, "For multi-step work, task_create the steps up front; task_update {status: in_progress} when you start one and {status: completed} immediately when done. When in doubt about ids or state, task_list first.")
 	}
 	if hasDispatch {
 		out = append(out, "Dispatch large explorations to the explore subagent; dispatch multi-file plans to plan; hand off self-contained subtasks to general-purpose.")
