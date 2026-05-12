@@ -227,7 +227,7 @@ func TestSteer_EmitsSteerConsumedEvent(t *testing.T) {
 			text = i
 		}
 	}
-	if !(post >= 0 && consumed > post && text > consumed) {
+	if post < 0 || consumed <= post || text <= consumed {
 		t.Fatalf("event order wrong: post=%d consumed=%d text=%d, kinds=%v", post, consumed, text, kinds)
 	}
 }

@@ -264,12 +264,22 @@ func TestSubAgent_ChildProviderError(t *testing.T) {
 		{Type: "explore", Description: "d", Agent: child},
 	})
 
-	// Child error doesn't propagate as Go error from runner.Wait; the runner
-	// ends with StopError and the last assistant text is empty. The subagent
-	// tool wraps this as a non-error result with "sub-agent returned no content".
+	// Child stream errors are surfaced as IsError=true tool results carrying the
+	// original error message — the parent agent then sees a normal tool error
+	// and can decide to retry / escalate / fail. Earlier behavior silently
+	// returned "sub-agent returned no content", which dropped the cause and
+	// indistinguishably mimicked a model that just produced nothing.
 	results := runAndGetAllToolResults(t, parentMock, dispatchTool)
-	if _, ok := results["cp1"]; !ok {
-		t.Errorf("expected a tool result for child-error case; got %v", results)
+	rb, ok := results["cp1"]
+	if !ok {
+		t.Fatalf("expected a tool result for child-error case; got %v", results)
+	}
+	if !rb.IsError {
+		t.Errorf("expected IsError=true on child stream error; got IsError=false (text=%q)", textOf(rb))
+	}
+	got := textOf(rb)
+	if !strings.Contains(got, "sub-agent error") || !strings.Contains(got, "child boom") {
+		t.Errorf("expected tool result text to include 'sub-agent error' and original cause 'child boom'; got %q", got)
 	}
 }
 

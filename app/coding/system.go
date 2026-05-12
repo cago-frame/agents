@@ -252,9 +252,16 @@ func (s *System) gpSystemPromptForTest() string { return s.cachedGPSystemProm }
 
 // defaultExploreOpts / defaultPlanOpts 把 systemConfig 里的 subagent override 翻译成
 // Explore / Plan 的 SubagentOption 切片。
+//
+// model 解析顺序：
+//  1. WithSubagentModel("explore", ...) 显式指定 → 用它（可以为不同子 agent 配不同模型）
+//  2. 否则回退到 cfg.model（父 agent 的 model）—— 不回退的话 child 请求
+//     Model="" 会被 openai/anthropic 这种严格校验的 provider 直接拒掉，
+//     stream 流出 chunk.Err，subagent 工具兜底返回 "sub-agent returned
+//     no content"，真实错误被吞。
 func defaultExploreOpts(cfg systemConfig) []SubagentOption {
 	var out []SubagentOption
-	if m, ok := cfg.subagentModels["explore"]; ok && m != "" {
+	if m := resolveSubagentModel(cfg, "explore"); m != "" {
 		out = append(out, SubagentWithModel(m))
 	}
 	if s, ok := cfg.subagentSystems["explore"]; ok {
@@ -265,13 +272,22 @@ func defaultExploreOpts(cfg systemConfig) []SubagentOption {
 
 func defaultPlanOpts(cfg systemConfig) []SubagentOption {
 	var out []SubagentOption
-	if m, ok := cfg.subagentModels["plan"]; ok && m != "" {
+	if m := resolveSubagentModel(cfg, "plan"); m != "" {
 		out = append(out, SubagentWithModel(m))
 	}
 	if s, ok := cfg.subagentSystems["plan"]; ok {
 		out = append(out, SubagentWithSystem(s))
 	}
 	return out
+}
+
+// resolveSubagentModel 给定子 agent 类型，按"显式 override → 父 model"的顺序取 model。
+// 返回空串表示父也没 model，让 agent 走 provider 内置默认。
+func resolveSubagentModel(cfg systemConfig, typ string) string {
+	if m, ok := cfg.subagentModels[typ]; ok && m != "" {
+		return m
+	}
+	return cfg.model
 }
 
 // gpEntryWithWeb 构造 GeneralPurpose Entry，并把 cfg 里的 web 注入塞进 GP 工具集。
@@ -284,7 +300,7 @@ func defaultPlanOpts(cfg systemConfig) []SubagentOption {
 func gpEntryWithWeb(prov provider.Provider, cwd string, cfg systemConfig, contextFiles []ContextFile, skills []Skill) (subagent.Entry, string, error) {
 	gpTools := generalPurposeTools(cwd, cfg.search, cfg.fetch)
 	opts := []SubagentOption{SubagentWithTools(gpTools...)}
-	if m, ok := cfg.subagentModels["general-purpose"]; ok && m != "" {
+	if m := resolveSubagentModel(cfg, "general-purpose"); m != "" {
 		opts = append(opts, SubagentWithModel(m))
 	}
 	// Build dynamic system prompt for GP (includes project context + skills) unless

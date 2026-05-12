@@ -179,8 +179,8 @@ type bridgeTestTool struct {
 	name string
 }
 
-func (t *bridgeTestTool) Name() string           { return t.name }
-func (t *bridgeTestTool) Description() string    { return "test" }
+func (t *bridgeTestTool) Name() string         { return t.name }
+func (t *bridgeTestTool) Description() string  { return "test" }
 func (t *bridgeTestTool) Schema() agent.Schema { return agent.Schema{Type: "object"} }
 func (t *bridgeTestTool) Call(_ context.Context, _ map[string]any) (*agent.ToolResultBlock, error) {
 	return &agent.ToolResultBlock{

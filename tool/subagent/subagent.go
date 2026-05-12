@@ -87,11 +87,29 @@ func runChild(ctx context.Context, byType map[string]Entry, in map[string]any) (
 	}
 	defer func() { _ = runner.Close() }()
 
-	// Capture the stop reason from EventTurnEnd so we can prefix the result.
-	var lastStop agent.StopReason
-	unsub := runner.OnEvent(agent.OnlyKinds(agent.EventTurnEnd), func(_ context.Context, ev agent.Event) {
-		lastStop = ev.StopReason
-	})
+	// Capture the stop reason + last stream-level error. runner.Wait drains the
+	// event channel and returns nil for stream errors (they show up as
+	// EventError frames, not as Wait's Go error). Without observing EventError,
+	// a child whose API call fails would surface as "sub-agent returned no
+	// content" with the real cause silently dropped — the parent agent then
+	// can't see / report / retry the underlying error.
+	var (
+		lastStop  agent.StopReason
+		lastError error
+	)
+	unsub := runner.OnEvent(
+		agent.OnlyKinds(agent.EventTurnEnd, agent.EventError),
+		func(_ context.Context, ev agent.Event) {
+			switch ev.Kind {
+			case agent.EventTurnEnd:
+				lastStop = ev.StopReason
+			case agent.EventError:
+				if ev.Error != nil {
+					lastError = ev.Error
+				}
+			}
+		},
+	)
 	defer unsub()
 
 	if err := runner.Wait(ctx, prompt); err != nil {
@@ -118,6 +136,19 @@ func runChild(ctx context.Context, byType map[string]Entry, in map[string]any) (
 			return nil, ctx.Err()
 		}
 		return tool.TextResult("[sub-agent stopped: canceled]\n" + text), nil
+	case agent.StopError:
+		msg := "[sub-agent error]"
+		if lastError != nil {
+			msg = "[sub-agent error: " + lastError.Error() + "]"
+		}
+		if text != "" {
+			return tool.ErrorResult(msg + "\n" + text), nil
+		}
+		return tool.ErrorResult(msg), nil
+	case agent.StopTokenLimit:
+		return tool.TextResult("[sub-agent stopped: token_limit]\n" + text), nil
+	case agent.StopTimeout:
+		return tool.TextResult("[sub-agent stopped: timeout]\n" + text), nil
 	default:
 		if text == "" {
 			return tool.TextResult("sub-agent returned no content"), nil
@@ -126,23 +157,39 @@ func runChild(ctx context.Context, byType map[string]Entry, in map[string]any) (
 	}
 }
 
+// lastAssistantText 从子对话里挑一段适合回给父 agent 的最终文本。
+//
+// 策略（从后往前）：
+//  1. 命中最近一条含 TextBlock 的 assistant 消息 → 返回其文本（首选）。
+//  2. 整条对话都没有 TextBlock 时，回退到最近一条含 ThinkingBlock 的
+//     assistant 消息的思考文本——reasoning provider（DeepSeek-R1、Anthropic
+//     extended thinking 等）允许模型把最终结论放在 thinking 流里而不发
+//     content；不回退就会把这种模型的输出整段吞掉，父 agent 看到
+//     "sub-agent returned no content"。
 func lastAssistantText(conv *agent.Conversation) string {
 	msgs := conv.Messages()
+	var fallbackThinking string
 	for i := len(msgs) - 1; i >= 0; i-- {
 		if msgs[i].Role != agent.RoleAssistant {
 			continue
 		}
-		var sb strings.Builder
+		var text, thinking strings.Builder
 		for _, c := range msgs[i].Content {
-			if t, ok := c.(agent.TextBlock); ok {
-				sb.WriteString(t.Text)
+			switch t := c.(type) {
+			case agent.TextBlock:
+				text.WriteString(t.Text)
+			case agent.ThinkingBlock:
+				thinking.WriteString(t.Text)
 			}
 		}
-		if sb.Len() > 0 {
-			return sb.String()
+		if text.Len() > 0 {
+			return text.String()
+		}
+		if fallbackThinking == "" && thinking.Len() > 0 {
+			fallbackThinking = thinking.String()
 		}
 	}
-	return ""
+	return fallbackThinking
 }
 
 func buildDescription(base string, entries []Entry) string {
