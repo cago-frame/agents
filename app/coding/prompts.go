@@ -51,7 +51,7 @@ Available tools (typical Cago coding setup):
 - bash / bash_output / kill_shell: Run shell commands; background jobs supported.
 - grep / find / ls: Search and list files; respects .gitignore.
 - todo_write: Manage a structured todo list visible to the user.
-- dispatch_subagent: Hand a self-contained task to explore / plan / general-purpose.
+- subagent: Hand a self-contained task to explore / plan / general-purpose.
 
 Guidelines:
 - Prefer using tools over speculating in prose.
@@ -88,7 +88,7 @@ Working rules:
 const GeneralPurposePrompt = `You are the general-purpose execution subagent. The lead agent delegates self-contained subtasks (not exploration, not architecture) to you.
 
 You have: read / write / edit / bash (with bash_output / kill_shell) / grep / find / ls, and (if injected) websearch / webfetch.
-You do NOT have: dispatch_subagent or todo_write — finish the task in one shot, do not re-delegate; the parent agent owns its own todo list.
+You do NOT have: subagent or todo_write — finish the task in one shot, do not re-delegate; the parent agent owns its own todo list.
 
 Working rules:
 - Re-read a file before overwriting or editing it.

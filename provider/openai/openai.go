@@ -44,6 +44,7 @@ func (p *Provider) ChatCompletion(ctx context.Context, req *provider.CompletionR
 	choice := resp.Choices[0]
 	return &provider.CompletionResponse{
 		Content:      choice.Message.Content,
+		Thinking:     fromOAIReasoningContent(choice.Message.ReasoningContent),
 		Role:         provider.Role(choice.Message.Role),
 		ToolCalls:    fromOAIToolCalls(choice.Message.ToolCalls),
 		Usage:        fromOAIUsage(resp.Usage),
@@ -95,6 +96,11 @@ func (p *Provider) ChatStream(ctx context.Context, req *provider.CompletionReque
 				continue
 			}
 			c := resp.Choices[0]
+			if c.Delta.ReasoningContent != "" {
+				if !emit(provider.StreamChunk{ThinkingDelta: &provider.ThinkingDelta{Text: c.Delta.ReasoningContent}}) {
+					return
+				}
+			}
 			if c.Delta.Content != "" {
 				if !emit(provider.StreamChunk{ContentDelta: c.Delta.Content}) {
 					return
@@ -169,6 +175,9 @@ func (p *Provider) buildRequest(req *provider.CompletionRequest, stream bool) (o
 			}
 		} else {
 			om.Content = m.Content
+		}
+		if m.Role == provider.RoleAssistant {
+			om.ReasoningContent = thinkingText(m.Thinking)
 		}
 		for _, tc := range m.ToolCalls {
 			om.ToolCalls = append(om.ToolCalls, openai.ToolCall{
@@ -309,6 +318,21 @@ func fromOAIToolCalls(in []openai.ToolCall) []provider.ToolCall {
 				Arguments: tc.Function.Arguments,
 			},
 		})
+	}
+	return out
+}
+
+func fromOAIReasoningContent(text string) []provider.ThinkingBlock {
+	if text == "" {
+		return nil
+	}
+	return []provider.ThinkingBlock{{Text: text}}
+}
+
+func thinkingText(blocks []provider.ThinkingBlock) string {
+	var out string
+	for _, b := range blocks {
+		out += b.Text
 	}
 	return out
 }

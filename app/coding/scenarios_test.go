@@ -58,6 +58,32 @@ func TestScenario_CodingAssembly(t *testing.T) {
 			So(res.IsBuiltin, ShouldBeTrue)
 		})
 
+		Convey("Scenario: WithThinking 注入 provider 请求", func() {
+			mock := providertest.New()
+			mock.QueueStream(
+				provider.StreamChunk{ContentDelta: "ack"},
+				provider.StreamChunk{FinishReason: provider.FinishStop},
+			)
+			sys, err := coding.New(t.Context(), mock, t.TempDir(),
+				coding.WithoutContextFiles(), coding.WithoutSkills(), coding.WithoutSlashCommands(), coding.WithoutCompaction(),
+				coding.WithThinking(&provider.ThinkingConfig{Effort: provider.ThinkingHigh}),
+			)
+			So(err, ShouldBeNil)
+			t.Cleanup(func() { _ = sys.Close(context.Background()) })
+
+			r := sys.Agent().Runner(agent.NewConversation())
+			t.Cleanup(func() { _ = r.Close() })
+			events, err := r.Send(context.Background(), "ping")
+			So(err, ShouldBeNil)
+			for range events {
+			}
+
+			received := mock.Received()
+			So(len(received), ShouldEqual, 1)
+			So(received[0].Thinking, ShouldNotBeNil)
+			So(received[0].Thinking.Effort, ShouldEqual, provider.ThinkingHigh)
+		})
+
 		Convey("Scenario: CLAUDE.md 自动注入 + WithoutContextFiles 关掉", func() {
 			cwd := t.TempDir()
 			mustWriteFile(t, filepath.Join(cwd, "CLAUDE.md"), "PROJ_RULES_FOO")

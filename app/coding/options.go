@@ -15,6 +15,7 @@ type Option func(*systemConfig)
 // systemConfig 累计所有 New 时的配置。各字段语义见对应 With* 方法。
 type systemConfig struct {
 	model          string
+	thinking       *provider.ThinkingConfig
 	systemAppend   string
 	systemTemplate string
 
@@ -58,6 +59,20 @@ func defaultSystemConfig() systemConfig {
 // WithModel 覆盖父 agent 的模型名。空字符串 = 不调 BuiltinModel，走 backend 默认。
 func WithModel(name string) Option { return func(c *systemConfig) { c.model = name } }
 
+// WithThinking configures the parent agent's provider-level thinking/reasoning
+// option. Providers decide how to translate it, e.g. OpenAI-compatible
+// reasoning_effort or Anthropic extended thinking.
+func WithThinking(cfg *provider.ThinkingConfig) Option {
+	return func(c *systemConfig) {
+		if cfg == nil {
+			c.thinking = nil
+			return
+		}
+		v := *cfg
+		c.thinking = &v
+	}
+}
+
 // AppendSystem 在默认 SystemPrompt 之后追加（用 \n\n 分隔，注入到模板的 {{.AppendSystem}} 位）。
 func AppendSystem(extra string) Option {
 	return func(c *systemConfig) { c.systemAppend = extra }
@@ -84,7 +99,7 @@ func WithSubagentSystem(typ, prompt string) Option {
 	return func(c *systemConfig) { c.subagentSystems[typ] = prompt }
 }
 
-// WithExtraTools 给父 agent 追加自定义 tool（除默认工具集 + dispatch_subagent 之外）。
+// WithExtraTools 给父 agent 追加自定义 tool（除默认工具集 + subagent 之外）。
 func WithExtraTools(tools ...tool.Tool) Option {
 	return func(c *systemConfig) { c.extraTools = append(c.extraTools, tools...) }
 }
@@ -97,7 +112,7 @@ func WithAgentOpts(opts ...agent.Option) Option {
 	return func(c *systemConfig) { c.extraAgentOpts = append(c.extraAgentOpts, opts...) }
 }
 
-// WithExtraSubagents 给 dispatch_subagent 工具追加 Entry。若 Entry.Type 与某个默认
+// WithExtraSubagents 给 subagent 工具追加 Entry。若 Entry.Type 与某个默认
 // Entry（"explore"/"plan"/"general-purpose"）相同，**替换**默认 Entry（被替换的默认
 // Entry 在 New 内部立即 Close 释放）；否则 append 到末尾。
 func WithExtraSubagents(entries ...subagent.Entry) Option {

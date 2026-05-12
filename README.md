@@ -14,7 +14,7 @@
 - **`mcp/`** — Loopback streamable-HTTP MCP Bridge：`Bridge.Register(tool.Tool)` + `Bridge.Start(ctx)`，给两个 CLI facade 用。
 - **`tool/`** — 自带的编码工具集子包（`read` / `write` / `edit` / `bash` / `grep` / `find` / `ls` / `todo` / `websearch` / `webfetch`）+ `tool/state.ReadTracker`（read-before-edit / stale 检测）。每个子包都暴露 `New(opts...) tool.Tool`；ready-made 组合（`Tools` / `ReadOnly` / `NewSession`）住在 `app/coding`。
 - **`tool/subagent/`** — `subagent.NewTool(name, desc, []Entry{...})` 把子 `*agent.Agent` 包成普通 `agent.Tool`。子事件**不**冒泡到父 stream（要观测自己挂 `agent.OnEvent` 在 child agent 上）。
-- **`app/coding/`** — 开箱即用 Coding Agent 系统：`coding.New(ctx, prov, cwd, opts...)` 一行拉起带工具集 / `dispatch_subagent` / 项目上下文（`CLAUDE.md` / `AGENTS.md`） / skills / slash commands / 自动压缩的父 agent。`coding.Explore` / `coding.Plan` / `coding.GeneralPurpose` 是 ready-made `subagent.Entry` 工厂。
+- **`app/coding/`** — 开箱即用 Coding Agent 系统：`coding.New(ctx, prov, cwd, opts...)` 一行拉起带工具集 / `subagent` / 项目上下文（`CLAUDE.md` / `AGENTS.md`） / skills / slash commands / 自动压缩的父 agent。`coding.Explore` / `coding.Plan` / `coding.GeneralPurpose` 是 ready-made `subagent.Entry` 工厂。
 - **`rag/embedding/`** — Embedding Provider 抽象 + OpenAI 实现。
 
 ## 安装

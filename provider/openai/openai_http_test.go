@@ -46,6 +46,7 @@ func TestChatCompletion_Success(t *testing.T) {
 				"index": 0,
 				"message": {
 					"role": "assistant",
+					"reasoning_content": "think",
 					"content": "hello",
 					"tool_calls": [{
 						"id": "call_1",
@@ -89,6 +90,9 @@ func TestChatCompletion_Success(t *testing.T) {
 	}
 	if resp.Content != "hello" {
 		t.Errorf("Content = %q, want %q", resp.Content, "hello")
+	}
+	if len(resp.Thinking) != 1 || resp.Thinking[0].Text != "think" {
+		t.Errorf("Thinking = %#v, want one reasoning block", resp.Thinking)
 	}
 	if resp.Role != provider.RoleAssistant {
 		t.Errorf("Role = %q, want assistant", resp.Role)
@@ -164,7 +168,9 @@ func TestChatStream_Success(t *testing.T) {
 		w.Header().Set("Cache-Control", "no-cache")
 		flusher := w.(http.Flusher)
 		frames := []string{
-			`{"id":"1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","content":"Hel"}}]}`,
+			`{"id":"1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"think "}}]}`,
+			`{"id":"1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":"first"}}]}`,
+			`{"id":"1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hel"}}]}`,
 			`{"id":"1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"lo"}}]}`,
 			`{"id":"1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"add","arguments":"{\"a\":1}"}}]}}]}`,
 			`{"id":"1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
@@ -189,6 +195,7 @@ func TestChatStream_Success(t *testing.T) {
 	}
 
 	var content strings.Builder
+	var thinking strings.Builder
 	var finish provider.FinishReason
 	var usage *provider.Usage
 	var toolCallSeen bool
@@ -198,6 +205,9 @@ func TestChatStream_Success(t *testing.T) {
 		}
 		if chunk.ContentDelta != "" {
 			content.WriteString(chunk.ContentDelta)
+		}
+		if chunk.ThinkingDelta != nil {
+			thinking.WriteString(chunk.ThinkingDelta.Text)
 		}
 		if chunk.ToolCallDelta != nil && chunk.ToolCallDelta.Name == "add" {
 			toolCallSeen = true
@@ -211,6 +221,9 @@ func TestChatStream_Success(t *testing.T) {
 	}
 	if got := content.String(); got != "Hello" {
 		t.Errorf("content = %q, want Hello", got)
+	}
+	if got := thinking.String(); got != "think first" {
+		t.Errorf("thinking = %q, want think first", got)
 	}
 	if !toolCallSeen {
 		t.Error("expected a tool_call delta")
@@ -387,6 +400,30 @@ func TestBuildRequest_ToolCallsAndToolMessages(t *testing.T) {
 	}
 	if got.Messages[1].ToolCallID != "call_1" {
 		t.Errorf("ToolCallID = %q", got.Messages[1].ToolCallID)
+	}
+}
+
+func TestBuildRequest_AssistantThinkingAsReasoningContent(t *testing.T) {
+	p := &Provider{}
+	got, err := p.buildRequest(&provider.CompletionRequest{
+		Model: "deepseek-v4-pro",
+		Messages: []provider.Message{{
+			Role:    provider.RoleAssistant,
+			Content: "final",
+			Thinking: []provider.ThinkingBlock{
+				{Text: "first "},
+				{Text: "second"},
+			},
+		}},
+	}, false)
+	if err != nil {
+		t.Fatalf("buildRequest: %v", err)
+	}
+	if len(got.Messages) != 1 {
+		t.Fatalf("messages len = %d, want 1", len(got.Messages))
+	}
+	if got.Messages[0].ReasoningContent != "first second" {
+		t.Errorf("ReasoningContent = %q, want first second", got.Messages[0].ReasoningContent)
 	}
 }
 

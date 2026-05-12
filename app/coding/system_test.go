@@ -45,7 +45,7 @@ func TestSystem_Close_Idempotent(t *testing.T) {
 func TestSystem_WithoutGeneralPurpose(t *testing.T) {
 	mock := providertest.New()
 	mock.QueueStream(
-		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ID: "g1", Name: "dispatch_subagent"}},
+		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ID: "g1", Name: "subagent"}},
 		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ArgsDelta: `{"type":"general-purpose","prompt":"do it"}`}},
 		provider.StreamChunk{FinishReason: provider.FinishToolCalls},
 	)
@@ -99,7 +99,7 @@ func TestSystem_WithoutGeneralPurpose(t *testing.T) {
 func TestSystem_DispatchToExplore_EndToEnd(t *testing.T) {
 	mock := providertest.New()
 	mock.QueueStream(
-		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ID: "e1", Name: "dispatch_subagent"}},
+		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ID: "e1", Name: "subagent"}},
 		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ArgsDelta: `{"type":"explore","prompt":"find foo"}`}},
 		provider.StreamChunk{FinishReason: provider.FinishToolCalls},
 	)
@@ -181,7 +181,7 @@ func TestSystem_WithExtraSubagents_AddsNewType(t *testing.T) {
 	t.Cleanup(func() { _ = sys.Close(context.Background()) })
 
 	mock.QueueStream(
-		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ID: "c1", Name: "dispatch_subagent"}},
+		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ID: "c1", Name: "subagent"}},
 		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ArgsDelta: `{"type":"custom","prompt":"do it"}`}},
 		provider.StreamChunk{FinishReason: provider.FinishToolCalls},
 	)
@@ -238,7 +238,7 @@ func TestSystem_WithExtraSubagents_ReplacesSameType(t *testing.T) {
 	t.Cleanup(func() { _ = sys.Close(context.Background()) })
 
 	mock.QueueStream(
-		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ID: "r1", Name: "dispatch_subagent"}},
+		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ID: "r1", Name: "subagent"}},
 		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ArgsDelta: `{"type":"explore","prompt":"go"}`}},
 		provider.StreamChunk{FinishReason: provider.FinishToolCalls},
 	)

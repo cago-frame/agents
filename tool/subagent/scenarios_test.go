@@ -40,14 +40,14 @@ func TestScenario_SubagentIsolation(t *testing.T) {
 		)
 
 		dispatchTool := subagent.NewTool(
-			"dispatch_subagent",
+			"subagent",
 			"委派给 child",
 			[]subagent.Entry{{Type: "explore_repo", Description: "explore", Agent: childAgent}},
 		)
 
 		parentMock := providertest.New().
 			QueueStream(
-				provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ID: "tu-sub-1", Name: "dispatch_subagent"}},
+				provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ID: "tu-sub-1", Name: "subagent"}},
 				provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ArgsDelta: `{"type":"explore_repo","prompt":"find helloWorld"}`}},
 				provider.StreamChunk{FinishReason: provider.FinishToolCalls},
 			).
@@ -70,7 +70,7 @@ func TestScenario_SubagentIsolation(t *testing.T) {
 			case agent.EventTextDelta:
 				parentTextEvts++
 			case agent.EventPreToolUse:
-				if ev.Tool != nil && ev.Tool.Name == "dispatch_subagent" {
+				if ev.Tool != nil && ev.Tool.Name == "subagent" {
 					parentSawDispatchPre = true
 				}
 			}

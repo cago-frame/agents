@@ -27,6 +27,7 @@ func (r *Runner) PreparedRequest(ctx context.Context, text string) (*provider.Co
 		Messages: msgs,
 		Tools:    r.agent.cfg.tools,
 		Model:    r.agent.cfg.model,
+		Thinking: r.agent.cfg.thinking,
 	}
 	return BuildRequest(spec), nil
 }

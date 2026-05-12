@@ -53,7 +53,7 @@ func main() {
 
 	// ── dispatch tool ────────────────────────────────────────────────────────
 	dispatchTool := subagent.NewTool(
-		"dispatch_subagent",
+		"subagent",
 		"将任务委派给子 agent。",
 		[]subagent.Entry{
 			{
@@ -66,9 +66,9 @@ func main() {
 
 	// ── parent mock ──────────────────────────────────────────────────────────
 	parentMock := providertest.New()
-	// Turn 1a: parent decides to call dispatch_subagent.
+	// Turn 1a: parent decides to call subagent.
 	parentMock.QueueStream(
-		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ID: "tc-sub-1", Name: "dispatch_subagent"}},
+		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ID: "tc-sub-1", Name: "subagent"}},
 		provider.StreamChunk{ToolCallDelta: &provider.ToolCallDelta{Index: 0, ArgsDelta: `{"type":"explore_repo","prompt":"在项目里找 helloWorld 函数在哪里定义"}`}},
 		provider.StreamChunk{FinishReason: provider.FinishToolCalls},
 	)
@@ -80,7 +80,7 @@ func main() {
 
 	// ── parent agent ─────────────────────────────────────────────────────────
 	parentAgent := agent.New(parentMock,
-		agent.System("你是一个编码助手，可以通过 dispatch_subagent 工具委派任务。"),
+		agent.System("你是一个编码助手，可以通过 subagent 工具委派任务。"),
 		agent.Model("mock-parent"),
 		agent.Tools(dispatchTool),
 	)

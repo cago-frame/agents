@@ -28,6 +28,7 @@ type RequestSpec struct {
 	Messages []Message
 	Tools    []Tool
 	Model    string
+	Thinking *provider.ThinkingConfig
 	// StripPartialReasons, if non-nil, overrides DefaultStripPartialReasons.
 	// Trailing assistant messages whose PartialReason matches any value in
 	// the slice are stripped from req.Messages. A non-nil empty slice keeps
@@ -51,6 +52,10 @@ func BuildRequest(spec RequestSpec) *provider.CompletionRequest {
 
 	req := &provider.CompletionRequest{
 		Model: spec.Model,
+	}
+	if spec.Thinking != nil {
+		v := *spec.Thinking
+		req.Thinking = &v
 	}
 	if sys := assembleSystem(spec.System, spec.Extra); sys != "" {
 		req.Messages = append(req.Messages, provider.Message{

@@ -10,8 +10,8 @@ func TestGeneralPurposeTools_NoDispatchNoTodo(t *testing.T) {
 		switch tt.Name() {
 		case "todo_write":
 			t.Errorf("GP must not have todo_write")
-		case "dispatch_subagent":
-			t.Errorf("GP must not have dispatch_subagent")
+		case "subagent":
+			t.Errorf("GP must not have subagent")
 		}
 	}
 	want := map[string]bool{

@@ -17,8 +17,8 @@ import (
 	"github.com/cago-frame/agents/tool/subagent"
 )
 
-const dispatchToolName = "dispatch_subagent"
-const dispatchToolDesc = "把任务委派给专长子 agent（explore / plan / general-purpose 或调用者追加的）"
+const subagentToolName = "subagent"
+const subagentToolDesc = "把任务委派给专长子 agent（explore / plan / general-purpose 或调用者追加的）"
 
 // System 是组装好的 Coding Agent 系统：父 agent + 子 agent 列表 + 状态 + 关闭手柄。
 // 必须通过 New 构造；零值无效。
@@ -108,7 +108,7 @@ func New(ctx context.Context, prov provider.Provider, cwd string, opts ...Option
 	if cfg.fetch != nil {
 		parentTools = append(parentTools, cfg.fetch.build()...)
 	}
-	parentTools = append(parentTools, subagent.NewTool(dispatchToolName, dispatchToolDesc, final))
+	parentTools = append(parentTools, subagent.NewTool(subagentToolName, subagentToolDesc, final))
 	parentTools = append(parentTools, cfg.extraTools...)
 
 	// ── 5. Build parent system prompt ────────────────────────────────────────
@@ -139,6 +139,9 @@ func New(ctx context.Context, prov provider.Provider, cwd string, opts ...Option
 	}
 	if cfg.model != "" {
 		agentOpts = append(agentOpts, agent.Model(cfg.model))
+	}
+	if cfg.thinking != nil {
+		agentOpts = append(agentOpts, agent.Thinking(cfg.thinking))
 	}
 	if cmpactor != nil && cfg.compactThreshold > 0 {
 		agentOpts = append(agentOpts, compactorpkg.WithStrategy(cmpactor.strategy))

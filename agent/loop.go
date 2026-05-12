@@ -99,6 +99,7 @@ func (r *Runner) runTurn(ctx context.Context, _ []ContentBlock) iter.Seq[Event] 
 					Messages:            r.conv.Messages(),
 					Tools:               r.agent.cfg.tools,
 					Model:               r.agent.cfg.model,
+					Thinking:            r.agent.cfg.thinking,
 					StripPartialReasons: r.agent.cfg.stripPartialReasonsOverride,
 				}
 				req := BuildRequest(spec)

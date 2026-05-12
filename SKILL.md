@@ -242,8 +242,8 @@ events, _ := r.Send(ctx, "...")
 
 What `coding.New` wires up:
 
-- Parent toolset = `Session.All()` + `dispatch_subagent` + optional web tools.
-- `dispatch_subagent` ships with `Explore` (read-only code search), `Plan` (architecture plans), `GeneralPurpose` (parent toolset minus dispatch / todo). Disable GP via `WithoutGeneralPurpose()`; replace or add Entries via `WithExtraSubagents(...)` (extra Entry with same Type **replaces** the default and Closes the replaced one).
+- Parent toolset = `Session.All()` + `subagent` + optional web tools.
+- `subagent` ships with `Explore` (read-only code search), `Plan` (architecture plans), `GeneralPurpose` (parent toolset minus dispatch / todo). Disable GP via `WithoutGeneralPurpose()`; replace or add Entries via `WithExtraSubagents(...)` (extra Entry with same Type **replaces** the default and Closes the replaced one).
 - Project context: `~/.claude/CLAUDE.md` plus every `CLAUDE.md` / `AGENTS.md` along cwd → repo-root chain (`WithoutContextFiles()` to disable).
 - Skills: `~/.claude/skills/` and `.claude/skills/` along the chain — scanned for `SKILL.md` with frontmatter `name` / `description` / `disable-model-invocation`, injected as XML blocks (`WithoutSkills()` to disable).
 - Dynamic system prompt: `coding.BuildSystemPrompt(opts)` assembles tools + project context + skills + each tool's `PromptSnippet()` / `PromptGuidelines()`.

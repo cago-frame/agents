@@ -16,6 +16,7 @@ type agentConfig struct {
 	extraSystem                 []string
 	tools                       []Tool
 	model                       string
+	thinking                    *provider.ThinkingConfig
 	maxSteps                    int
 	toolMiddleware              []hookEntry[ToolMiddleware]
 	userPromptHooks             []UserPromptHook

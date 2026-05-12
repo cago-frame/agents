@@ -27,6 +27,18 @@ func TestBuildRequest_System(t *testing.T) {
 	}
 }
 
+func TestBuildRequest_ThinkingConfig(t *testing.T) {
+	req := agent.BuildRequest(agent.RequestSpec{
+		Messages: []agent.Message{
+			{Role: agent.RoleUser, Content: []agent.ContentBlock{agent.TextBlock{Text: "hi"}}},
+		},
+		Thinking: &provider.ThinkingConfig{Effort: provider.ThinkingHigh},
+	})
+	if req.Thinking == nil || req.Thinking.Effort != provider.ThinkingHigh {
+		t.Fatalf("Thinking = %#v, want high", req.Thinking)
+	}
+}
+
 func TestBuildRequest_DefaultKeepsCancelledAndErroredPartials(t *testing.T) {
 	// A canceled partial must reach the next request so the LLM can see
 	// what it had already produced and continue from there.

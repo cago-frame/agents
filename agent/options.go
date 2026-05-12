@@ -1,5 +1,7 @@
 package agent
 
+import "github.com/cago-frame/agents/provider"
+
 type Option func(*agentConfig)
 
 // Compose flattens a set of Options into one. Nested Compose unfolds naturally
@@ -28,6 +30,19 @@ func Tools(tools ...Tool) Option {
 
 func Model(name string) Option {
 	return func(c *agentConfig) { c.model = name }
+}
+
+// Thinking sets the provider-level thinking/reasoning configuration for every
+// turn this Agent runs. Providers decide how to translate it.
+func Thinking(cfg *provider.ThinkingConfig) Option {
+	return func(c *agentConfig) {
+		if cfg == nil {
+			c.thinking = nil
+			return
+		}
+		v := *cfg
+		c.thinking = &v
+	}
 }
 
 func MaxSteps(n int) Option {

@@ -175,7 +175,7 @@ func combinationGuidelines(names map[string]bool) []string {
 	hasFind := names["find"]
 	hasLs := names["ls"]
 	hasTodo := names["todo_write"]
-	hasDispatch := names["dispatch_subagent"]
+	hasDispatch := names["subagent"]
 
 	switch {
 	case hasBash && !hasGrep && !hasFind && !hasLs:
