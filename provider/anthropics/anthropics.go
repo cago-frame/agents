@@ -125,6 +125,17 @@ func (p *Provider) ChatStream(ctx context.Context, req *provider.CompletionReque
 	go func() {
 		defer func() { _ = stream.Close() }()
 		defer close(ch)
+		// SDK / emit 路径若 panic，不能让 channel 被 defer close 静默关掉 —— 上游会
+		// 当成"正常结束"漏掉错误。recover 后 emit 一条 error chunk 让 Runner 走
+		// retry / EventError 链路。
+		defer func() {
+			if r := recover(); r != nil {
+				select {
+				case ch <- provider.StreamChunk{Err: fmt.Errorf("anthropic provider panic: %v", r)}:
+				default:
+				}
+			}
+		}()
 
 		// tool_use content block 在 tool_calls 中的序号（流式拼装时消费方用 Index 字段区分）。
 		toolIndexByBlock := make(map[int64]int)

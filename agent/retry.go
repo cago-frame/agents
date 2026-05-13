@@ -177,7 +177,10 @@ func defaultShouldRetry(err error) bool {
 	if msg == "eof" {
 		return true
 	}
-	for _, sub := range []string{"connection reset", "broken pipe", "i/o timeout", "tls handshake timeout"} {
+	// 服务端中途硬断 / SSE 流被截断时，provider 应该 emit io.ErrUnexpectedEOF
+	// （openai provider 在 finish_reason 之前收到 io.EOF 时走这条路径）。
+	// "unexpected eof" 作为可重试错误识别，避免被静默当作正常流结束。
+	for _, sub := range []string{"connection reset", "broken pipe", "i/o timeout", "tls handshake timeout", "unexpected eof"} {
 		if strings.Contains(msg, sub) {
 			return true
 		}

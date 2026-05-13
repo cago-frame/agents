@@ -17,6 +17,32 @@ import (
 // errors.Is 判定后自行决定重试或上抛。
 var ErrEmptyChoices = errors.New("openai: empty choices")
 
+// wrapProviderError 把 go-openai SDK 的 *openai.APIError / *openai.RequestError
+// 包装为 *provider.ProviderError，让 agent.RetryPolicy.defaultShouldRetry 能拿到
+// StatusCode 走重试白名单（408/425/429/500/502/503/504）。go-openai SDK 不暴露
+// 原始 HTTP response headers，因此 Retry-After 留空，cago 会退化到指数退避。
+// 非 OpenAI API 错误（io.EOF / 网络错误 / context.Canceled 等）原样透传。
+func wrapProviderError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var apiErr *openai.APIError
+	if errors.As(err, &apiErr) {
+		return &provider.ProviderError{
+			Err:        err,
+			StatusCode: apiErr.HTTPStatusCode,
+		}
+	}
+	var reqErr *openai.RequestError
+	if errors.As(err, &reqErr) {
+		return &provider.ProviderError{
+			Err:        err,
+			StatusCode: reqErr.HTTPStatusCode,
+		}
+	}
+	return err
+}
+
 // Provider 实现 provider.Provider，基于 github.com/sashabaranov/go-openai 与 OpenAI / OpenAI 兼容接口对接。
 type Provider struct {
 	client *openai.Client
@@ -36,7 +62,7 @@ func (p *Provider) ChatCompletion(ctx context.Context, req *provider.CompletionR
 	}
 	resp, err := p.client.CreateChatCompletion(ctx, oaiReq)
 	if err != nil {
-		return nil, err
+		return nil, wrapProviderError(err)
 	}
 	if len(resp.Choices) == 0 {
 		return nil, ErrEmptyChoices
@@ -60,12 +86,23 @@ func (p *Provider) ChatStream(ctx context.Context, req *provider.CompletionReque
 	oaiReq.StreamOptions = &openai.StreamOptions{IncludeUsage: true}
 	stream, err := p.client.CreateChatCompletionStream(ctx, oaiReq)
 	if err != nil {
-		return nil, err
+		return nil, wrapProviderError(err)
 	}
 	ch := make(chan provider.StreamChunk, 16)
 	go func() {
 		defer func() { _ = stream.Close() }()
 		defer close(ch)
+		// SDK / emit 路径若 panic（基础设施 bug、内存问题等），不能让 channel 被
+		// defer close 静默关掉 —— 上游会当成"正常结束"漏掉错误。recover 后 emit
+		// 一条 ProviderError，让 Runner 走 retry / EventError 链路。
+		defer func() {
+			if r := recover(); r != nil {
+				select {
+				case ch <- provider.StreamChunk{Err: fmt.Errorf("openai provider panic: %v", r)}:
+				default:
+				}
+			}
+		}()
 		// ctx 取消通过 HTTP 连接传导：go-openai 客户端在 ctx.Done 时关闭底层请求体，
 		// stream.Recv() 随之返回 error，本循环自然退出。但若消费方提前放弃 channel，
 		// 16-buffer 满后 send 会卡住；send 都用 emit 包了 ctx select 兜底。
@@ -77,13 +114,21 @@ func (p *Provider) ChatStream(ctx context.Context, req *provider.CompletionReque
 				return false
 			}
 		}
+		// finishSeen 跟踪服务端是否已下发 finish_reason —— io.EOF 在 finish_reason 之前
+		// 到达视为"流被服务端中途切断"，必须 emit 一个 error chunk 让上游能 retry；
+		// finish_reason 之后的 io.EOF 才是真正的正常收尾。go-openai SDK 在两种场景
+		// 都返回 io.EOF，自身无法区分。
+		finishSeen := false
 		for {
 			resp, rerr := stream.Recv()
 			if errors.Is(rerr, io.EOF) {
+				if !finishSeen {
+					_ = emit(provider.StreamChunk{Err: io.ErrUnexpectedEOF})
+				}
 				return
 			}
 			if rerr != nil {
-				_ = emit(provider.StreamChunk{Err: rerr})
+				_ = emit(provider.StreamChunk{Err: wrapProviderError(rerr)})
 				return
 			}
 			if resp.Usage != nil {
@@ -123,6 +168,7 @@ func (p *Provider) ChatStream(ctx context.Context, req *provider.CompletionReque
 				}
 			}
 			if c.FinishReason != "" {
+				finishSeen = true
 				if !emit(provider.StreamChunk{FinishReason: fromOAIFinishReason(string(c.FinishReason))}) {
 					return
 				}

@@ -264,6 +264,109 @@ func TestChatStream_HTTPError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
+	// HTTP 错误必须 wrap 成 *provider.ProviderError 才能让 agent.RetryPolicy
+	// 识别 status code 走重试白名单。go-openai SDK 直接返回的 *openai.APIError
+	// 在 errors.As(err, &ProviderError) 上拿不到 StatusCode，会被 defaultShouldRetry
+	// 漏掉。回归测试覆盖 500/503/429 都能被正确包装。
+	var pe *provider.ProviderError
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected *provider.ProviderError, got %T: %v", err, err)
+	}
+	if pe.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("expected StatusCode=500, got %d", pe.StatusCode)
+	}
+}
+
+// TestChatStream_503ReturnsProviderError 回归 issue: 503 错误未被 wrap，导致
+// agent.RetryPolicy.defaultShouldRetry 无法识别 status code，5xx 完全不重试。
+// 修复后 OpenAI provider 在 CreateChatCompletionStream 失败的同步路径也走 wrap。
+func TestChatStream_503ReturnsProviderError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = io.WriteString(w, `{"error":{"message":"No available channel"}}`)
+	}))
+	defer srv.Close()
+
+	p := newTestProvider(srv.URL)
+	_, err := p.ChatStream(context.Background(), &provider.CompletionRequest{
+		Model:    "gpt-4o",
+		Messages: []provider.Message{{Role: provider.RoleUser, Content: "hi"}},
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	var pe *provider.ProviderError
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected *provider.ProviderError, got %T: %v", err, err)
+	}
+	if pe.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("expected StatusCode=503, got %d", pe.StatusCode)
+	}
+}
+
+// TestChatStream_TruncatedBeforeFinishReportsUnexpectedEOF 回归 issue: 服务端
+// 在 finish_reason 之前硬断连接，go-openai SDK 返回 io.EOF 与正常完成无法区分。
+// 修复后 OpenAI provider 用 finishSeen 标志跟踪 —— 未见 finish_reason 就 EOF
+// 视为流被截断，emit io.ErrUnexpectedEOF，agent.RetryPolicy 的字符串 fallback
+// 识别 "unexpected eof" 走重试白名单。
+func TestChatStream_TruncatedBeforeFinishReportsUnexpectedEOF(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher := w.(http.Flusher)
+		// 发一段 content delta 后直接关闭连接（不发 finish_reason，也不发 [DONE]）。
+		_, _ = fmt.Fprint(w, "data: {\"id\":\"1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hel\"}}]}\n\n")
+		flusher.Flush()
+		// 直接 return —— 不发 finish_reason，模拟服务端中途切断。
+	}))
+	defer srv.Close()
+
+	p := newTestProvider(srv.URL)
+	ch, err := p.ChatStream(context.Background(), &provider.CompletionRequest{
+		Model:    "gpt-4o",
+		Messages: []provider.Message{{Role: provider.RoleUser, Content: "hi"}},
+	})
+	if err != nil {
+		t.Fatalf("ChatStream: %v", err)
+	}
+	var gotErr error
+	for chunk := range ch {
+		if chunk.Err != nil {
+			gotErr = chunk.Err
+		}
+	}
+	if gotErr == nil {
+		t.Fatal("expected error chunk on truncated stream, got nil")
+	}
+	if !errors.Is(gotErr, io.ErrUnexpectedEOF) {
+		t.Fatalf("expected io.ErrUnexpectedEOF, got %v", gotErr)
+	}
+}
+
+// TestChatCompletion_429ReturnsProviderError 覆盖非 stream 路径同样要 wrap。
+func TestChatCompletion_429ReturnsProviderError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = io.WriteString(w, `{"error":{"message":"rate limit"}}`)
+	}))
+	defer srv.Close()
+
+	p := newTestProvider(srv.URL)
+	_, err := p.ChatCompletion(context.Background(), &provider.CompletionRequest{
+		Model:    "gpt-4o",
+		Messages: []provider.Message{{Role: provider.RoleUser, Content: "hi"}},
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	var pe *provider.ProviderError
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected *provider.ProviderError, got %T: %v", err, err)
+	}
+	if pe.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("expected StatusCode=429, got %d", pe.StatusCode)
+	}
 }
 
 func TestChatStream_CancellingCtx(t *testing.T) {
