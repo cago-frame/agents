@@ -102,6 +102,13 @@ func New(ctx context.Context, prov provider.Provider, cwd string, opts ...Option
 	// ── 4. Build parent tool list (agent native; no legacy.Adapt). ────────
 	sess := NewSession(cwd)
 	parentTools := append([]tool.Tool{}, sess.All()...)
+	if cfg.toolDecorator != nil {
+		for i, t := range parentTools {
+			if out := cfg.toolDecorator(t); out != nil {
+				parentTools[i] = out
+			}
+		}
+	}
 	if cfg.search != nil {
 		parentTools = append(parentTools, cfg.search.build()...)
 	}

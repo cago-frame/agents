@@ -27,6 +27,10 @@ type systemConfig struct {
 	extraAgentOpts []agent.Option
 	includeGP      bool
 
+	// toolDecorator, when non-nil, wraps each default parent tool returned by the
+	// internal Session before they are passed to agent.Tools. See WithToolDecorator.
+	toolDecorator func(tool.Tool) tool.Tool
+
 	search *websearchSpec
 	fetch  *webfetchSpec
 
@@ -102,6 +106,25 @@ func WithSubagentSystem(typ, prompt string) Option {
 // WithExtraTools 给父 agent 追加自定义 tool（除默认工具集 + subagent 之外）。
 func WithExtraTools(tools ...tool.Tool) Option {
 	return func(c *systemConfig) { c.extraTools = append(c.extraTools, tools...) }
+}
+
+// WithToolDecorator wraps each default parent tool (the ones returned by the
+// internal Session — bash/write/edit/read/grep/find/ls/task_*/bash_output/kill_shell)
+// through f before they are registered with the parent agent.
+//
+// Use cases: rename a default tool that collides visually with a custom remote
+// tool (e.g. bash → local_bash), prepend a warning to a tool description, or
+// wrap a tool's Call with extra logic the caller couldn't reach via middleware.
+//
+// f is invoked once per default tool in registration order. Returning the
+// passed-in tool unchanged is the no-op case; returning nil keeps the original
+// (treated as identity). f must NOT panic; it is called synchronously inside
+// coding.New.
+//
+// Scope: only the Session-default tools go through the decorator. WithExtraTools
+// entries, websearch/webfetch, and the subagent dispatch tool are NOT decorated.
+func WithToolDecorator(f func(tool.Tool) tool.Tool) Option {
+	return func(c *systemConfig) { c.toolDecorator = f }
 }
 
 // WithAgentOpts 把额外的 agent.Option 追加到父 agent 的构造参数末尾。
