@@ -184,6 +184,78 @@ func TestBuildRequest_AnnotatesLastSystemAndLastToolWithCacheControl(t *testing.
 	}
 }
 
+func TestBuildRequest_HonorsConfigCacheTTL(t *testing.T) {
+	// Given an anthropics Provider configured with 1h cache TTL,
+	// When buildRequest produces MessageNewParams,
+	// Then the cache_control on the last system block and last tool is annotated with ttl="1h".
+	p := &Provider{cacheTTL: anthropic.CacheControlEphemeralTTLTTL1h}
+	tool := provider.Tool{
+		Type: provider.ToolTypeFunction,
+		Function: &provider.FunctionDefinition{
+			Name:        "only",
+			Description: "only tool",
+			Parameters:  json.RawMessage(`{"type":"object"}`),
+		},
+	}
+	req := &provider.CompletionRequest{
+		Model: "claude-sonnet-4-6",
+		Messages: []provider.Message{
+			{Role: provider.RoleSystem, Content: "you are helpful"},
+			{Role: provider.RoleUser, Content: "hi"},
+		},
+		Tools: []provider.Tool{tool},
+	}
+	params, err := p.buildRequest(req)
+	if err != nil {
+		t.Fatalf("buildRequest: %v", err)
+	}
+	if got := params.System[len(params.System)-1].CacheControl.TTL; got != anthropic.CacheControlEphemeralTTLTTL1h {
+		t.Errorf("system CacheControl.TTL = %q, want %q", got, anthropic.CacheControlEphemeralTTLTTL1h)
+	}
+	last := params.Tools[len(params.Tools)-1]
+	if last.OfTool == nil {
+		t.Fatalf("last tool union has no OfTool: %+v", last)
+	}
+	if got := last.OfTool.CacheControl.TTL; got != anthropic.CacheControlEphemeralTTLTTL1h {
+		t.Errorf("tool CacheControl.TTL = %q, want %q", got, anthropic.CacheControlEphemeralTTLTTL1h)
+	}
+}
+
+func TestBuildRequest_DefaultCacheTTLLeavesTTLEmpty(t *testing.T) {
+	// Given an anthropics Provider WITHOUT explicit CacheTTL,
+	// When buildRequest emits cache_control,
+	// Then TTL stays empty so the SDK omits the field and the server defaults to 5m.
+	p := &Provider{}
+	req := &provider.CompletionRequest{
+		Model: "claude-sonnet-4-6",
+		Messages: []provider.Message{
+			{Role: provider.RoleSystem, Content: "sys"},
+			{Role: provider.RoleUser, Content: "hi"},
+		},
+	}
+	params, err := p.buildRequest(req)
+	if err != nil {
+		t.Fatalf("buildRequest: %v", err)
+	}
+	if got := params.System[len(params.System)-1].CacheControl.TTL; got != "" {
+		t.Errorf("default CacheControl.TTL = %q, want empty", got)
+	}
+}
+
+func TestNewProvider_PropagatesCacheTTL(t *testing.T) {
+	// Given Config{CacheTTL: 1h},
+	// When NewProvider builds a Provider,
+	// Then the underlying provider carries the TTL into buildRequest.
+	prov := NewProvider(Config{CacheTTL: CacheTTL1h})
+	concrete, ok := prov.(*Provider)
+	if !ok {
+		t.Fatalf("expected *Provider, got %T", prov)
+	}
+	if concrete.cacheTTL != anthropic.CacheControlEphemeralTTLTTL1h {
+		t.Errorf("cacheTTL = %q, want %q", concrete.cacheTTL, anthropic.CacheControlEphemeralTTLTTL1h)
+	}
+}
+
 func TestBuildRequest_NoPanicWithNoSystemOrTools(t *testing.T) {
 	p := &Provider{}
 	req := &provider.CompletionRequest{

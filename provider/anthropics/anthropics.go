@@ -20,8 +20,20 @@ const defaultMaxTokens = 4096
 
 // Provider 实现 provider.Provider，基于 github.com/anthropics/anthropic-sdk-go 与 Anthropic Messages API 对接。
 type Provider struct {
-	client anthropic.Client
+	client   anthropic.Client
+	cacheTTL anthropic.CacheControlEphemeralTTL
 }
+
+// CacheTTL 是 Anthropic prompt-cache breakpoint 的 TTL 选项，对应 SDK 的 CacheControlEphemeralTTL。
+// 暴露成包级别名 + 常量是为了让上层调用方不必再 import anthropic SDK。
+type CacheTTL = anthropic.CacheControlEphemeralTTL
+
+const (
+	// CacheTTL5m 5 分钟（SDK 默认值，等价于零值时服务端行为）。
+	CacheTTL5m CacheTTL = anthropic.CacheControlEphemeralTTLTTL5m
+	// CacheTTL1h 1 小时（Anthropic 已 GA 的 extended cache）。
+	CacheTTL1h CacheTTL = anthropic.CacheControlEphemeralTTLTTL1h
+)
 
 type Config struct {
 	BaseURL string
@@ -30,6 +42,8 @@ type Config struct {
 	// which is useful in tests to avoid slow retry backoff on deliberate error
 	// responses. Nil leaves the SDK default unchanged.
 	MaxRetries *int
+	// CacheTTL 控制 cache_control 上挂的 TTL。零值时不写 ttl 字段，由 Anthropic 服务端按默认 5m 处理。
+	CacheTTL CacheTTL
 }
 
 func NewProvider(config Config) provider.Provider {
@@ -40,7 +54,17 @@ func NewProvider(config Config) provider.Provider {
 	if config.MaxRetries != nil {
 		opts = append(opts, option.WithMaxRetries(*config.MaxRetries))
 	}
-	return &Provider{client: anthropic.NewClient(opts...)}
+	return &Provider{client: anthropic.NewClient(opts...), cacheTTL: config.CacheTTL}
+}
+
+// ephemeralCacheControl 按 Provider.cacheTTL 构造 cache_control。零值 TTL 走 SDK 默认（不发 ttl 字段，
+// 服务端按 5m 处理），显式 TTL 会带 "5m" / "1h" 出去。
+func (p *Provider) ephemeralCacheControl() anthropic.CacheControlEphemeralParam {
+	cc := anthropic.NewCacheControlEphemeralParam()
+	if p.cacheTTL != "" {
+		cc.TTL = p.cacheTTL
+	}
+	return cc
 }
 
 // wrapProviderError converts an Anthropic SDK *anthropic.Error into a
@@ -337,14 +361,14 @@ func (p *Provider) buildRequest(req *provider.CompletionRequest) (anthropic.Mess
 
 	// Cache breakpoint: last system block — preserves behavior ported from OpsKat.
 	if n := len(system); n > 0 {
-		system[n-1].CacheControl = anthropic.NewCacheControlEphemeralParam()
+		system[n-1].CacheControl = p.ephemeralCacheControl()
 	}
 	// Cache breakpoint: last tool definition — preserves behavior ported from OpsKat.
 	if n := len(tools); n > 0 {
 		// cago's buildTools only produces OfTool variants; the nil-guard is a safety net
 		// for future ToolUnionParam variants (Bash/TextEditor/WebSearch) that don't carry CacheControl.
 		if tools[n-1].OfTool != nil {
-			tools[n-1].OfTool.CacheControl = anthropic.NewCacheControlEphemeralParam()
+			tools[n-1].OfTool.CacheControl = p.ephemeralCacheControl()
 		}
 	}
 
