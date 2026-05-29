@@ -10,6 +10,7 @@ func TestGet_KnownModels(t *testing.T) {
 		multi  bool
 	}{
 		// Anthropic
+		{"claude-opus-4-8", VendorAnthropic, 1_000_000, true},
 		{"claude-opus-4-7", VendorAnthropic, 1_000_000, true},
 		{"claude-opus-4-6", VendorAnthropic, 1_000_000, true},
 		{"claude-sonnet-4-6", VendorAnthropic, 1_000_000, true},
@@ -38,6 +39,9 @@ func TestGet_KnownModels(t *testing.T) {
 		{"qwen3-vl-plus", VendorAlibaba, 262_144, true},
 		// Kimi
 		{"kimi-k2.6", VendorMoonshot, 256_000, true},
+		{"kimi-k2.6-instant", VendorMoonshot, 256_000, true},
+		// Xiaomi MiMo
+		{"mimo-v2.5", VendorXiaomi, 1_000_000, true},
 		// DeepSeek
 		{"deepseek-v4-pro", VendorDeepSeek, 1_000_000, false},
 		{"deepseek-v4-flash", VendorDeepSeek, 1_000_000, false},
@@ -85,6 +89,7 @@ func TestGet_Aliases(t *testing.T) {
 		alias string
 		id    string
 	}{
+		{"claude-opus-4.8", "claude-opus-4-8"},
 		{"claude-opus-4.7", "claude-opus-4-7"},
 		{"gemini-3", "gemini-3-pro"},
 		{"glm-5.0", "glm-5"},
@@ -94,7 +99,9 @@ func TestGet_Aliases(t *testing.T) {
 		{"minimax-2.7", "minimax-m2.7"},
 		{"qwen-max", "qwen3-max"},
 		{"kimi-k2", "kimi-k2.6"},
+		{"kimi-k2-instant", "kimi-k2.6-instant"},
 		{"grok-4", "grok-4.20"},
+		{"mimo-2.5", "mimo-v2.5"},
 	}
 	for _, c := range cases {
 		t.Run(c.alias, func(t *testing.T) {
@@ -114,7 +121,7 @@ func TestByVendor(t *testing.T) {
 		v    Vendor
 		want int
 	}{
-		{VendorAnthropic, 4},
+		{VendorAnthropic, 5},
 		{VendorOpenAI, 4},
 		{VendorZhipu, 3},
 		{VendorMiniMax, 1},
@@ -122,7 +129,8 @@ func TestByVendor(t *testing.T) {
 		{VendorDeepSeek, 2},
 		{VendorXAI, 2},
 		{VendorAlibaba, 3},
-		{VendorMoonshot, 1},
+		{VendorMoonshot, 2},
+		{VendorXiaomi, 1},
 	}
 	for _, c := range cases {
 		if n := len(ByVendor(c.v)); n != c.want {

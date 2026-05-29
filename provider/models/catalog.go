@@ -9,11 +9,22 @@ package models
 //   - MiniMax:   https://platform.minimax.io/docs
 //   - Google:    https://ai.google.dev/gemini-api/docs/gemini-3
 //   - DeepSeek:  https://api-docs.deepseek.com
+//   - Moonshot:  https://platform.kimi.ai/docs
+//   - Xiaomi:    https://mimo.xiaomi.com
 //
 // ContextWindow = 输入+输出合计窗口（tokens）；MaxOutput = 单次响应最大输出 tokens。
 var catalog = []Info{
 	// ============ Anthropic Claude 4.x ============
-	// 官方当前主推：Opus 4.7 / Sonnet 4.6 / Haiku 4.5。
+	// 官方当前主推：Opus 4.8 / Sonnet 4.6 / Haiku 4.5。
+	{
+		ID:            "claude-opus-4-8",
+		Aliases:       []string{"claude-opus-4.8"},
+		Vendor:        VendorAnthropic,
+		ContextWindow: 1_000_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true, // adaptive thinking
+	},
 	{
 		ID:            "claude-opus-4-7",
 		Aliases:       []string{"claude-opus-4.7"},
@@ -217,7 +228,7 @@ var catalog = []Info{
 	},
 
 	// ============ 月之暗面 Kimi ============
-	// K2.6（2026-04-20）原生支持 thinking + instant 双模式。
+	// K2.6（2026-04-20）原生支持 thinking + instant 双模式，按不同 model id 区分。
 	{
 		ID:            "kimi-k2.6",
 		Aliases:       []string{"kimi-k2-6", "kimi-k2"},
@@ -225,6 +236,28 @@ var catalog = []Info{
 		ContextWindow: 256_000,
 		MaxOutput:     65_536,
 		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true,
+	},
+	{
+		// 非 thinking 快速响应变体；同窗口、同模态，Thinking=false。
+		ID:            "kimi-k2.6-instant",
+		Aliases:       []string{"kimi-k2-6-instant", "kimi-k2-instant"},
+		Vendor:        VendorMoonshot,
+		ContextWindow: 256_000,
+		MaxOutput:     65_536,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      false,
+	},
+
+	// ============ 小米 MiMo ============
+	// MiMo-V2.5（2026-04-22）：310B Sparse MoE，原生多模态（text/image/audio/video）。
+	{
+		ID:            "mimo-v2.5",
+		Aliases:       []string{"mimo-v2-5", "mimo-2.5", "MiMo-V2.5"},
+		Vendor:        VendorXiaomi,
+		ContextWindow: 1_000_000,
+		MaxOutput:     131_000,
+		Modalities:    []Modality{ModalityText, ModalityImage, ModalityAudio, ModalityVideo},
 		Thinking:      true,
 	},
 

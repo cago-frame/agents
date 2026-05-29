@@ -19,6 +19,7 @@ const (
 	VendorXAI       Vendor = "xai"
 	VendorAlibaba   Vendor = "alibaba"  // Qwen 通义千问
 	VendorMoonshot  Vendor = "moonshot" // Kimi
+	VendorXiaomi    Vendor = "xiaomi"   // MiMo
 )
 
 // Modality 模态。
