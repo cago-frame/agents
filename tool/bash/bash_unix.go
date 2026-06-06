@@ -7,6 +7,14 @@ import (
 	"syscall"
 )
 
+func defaultShell() string {
+	return "/bin/sh"
+}
+
+func defaultArgsForShell(_ string) []string {
+	return []string{"-c"}
+}
+
 func setProcessGroup(cmd *exec.Cmd) {
 	if cmd.SysProcAttr == nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}

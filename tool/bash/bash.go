@@ -53,13 +53,15 @@ type config struct {
 // Cwd 指定命令的执行目录。
 func Cwd(p string) Option { return func(c *config) { c.cwd = p } }
 
-// Shell 覆盖默认 shell（默认 /bin/sh）。args 用 nil 走默认 ["-c"]。
+// Shell 覆盖默认 shell。args 为空时按 shell 名称选择默认命令参数。
 func Shell(path string, args ...string) Option {
 	return func(c *config) {
 		c.shell = path
-		if len(args) > 0 {
-			c.shellArgs = args
+		if len(args) == 0 {
+			c.shellArgs = defaultArgsForShell(path)
+			return
 		}
+		c.shellArgs = args
 	}
 }
 
@@ -89,9 +91,9 @@ func Serial() Option { return func(c *config) { c.serial = true } }
 // New 构造 bash 工具。
 func New(opts ...Option) tool.Tool {
 	cfg := &config{
-		shell:     "/bin/sh",
-		shellArgs: []string{"-c"},
+		shell: defaultShell(),
 	}
+	cfg.shellArgs = defaultArgsForShell(cfg.shell)
 	for _, o := range opts {
 		o(cfg)
 	}
