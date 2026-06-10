@@ -10,6 +10,8 @@ func TestGet_KnownModels(t *testing.T) {
 		multi  bool
 	}{
 		// Anthropic
+		{"claude-fable-5", VendorAnthropic, 1_000_000, true},
+		{"claude-mythos-5", VendorAnthropic, 1_000_000, true},
 		{"claude-opus-4-8", VendorAnthropic, 1_000_000, true},
 		{"claude-opus-4-7", VendorAnthropic, 1_000_000, true},
 		{"claude-opus-4-6", VendorAnthropic, 1_000_000, true},
@@ -121,7 +123,7 @@ func TestByVendor(t *testing.T) {
 		v    Vendor
 		want int
 	}{
-		{VendorAnthropic, 5},
+		{VendorAnthropic, 7},
 		{VendorOpenAI, 4},
 		{VendorZhipu, 3},
 		{VendorMiniMax, 1},

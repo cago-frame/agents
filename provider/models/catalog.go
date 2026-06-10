@@ -14,8 +14,26 @@ package models
 //
 // ContextWindow = 输入+输出合计窗口（tokens）；MaxOutput = 单次响应最大输出 tokens。
 var catalog = []Info{
-	// ============ Anthropic Claude 4.x ============
-	// 官方当前主推：Opus 4.8 / Sonnet 4.6 / Haiku 4.5。
+	// ============ Anthropic Claude ============
+	// 官方当前主推：Fable 5 / Opus 4.8 / Sonnet 4.6 / Haiku 4.5。
+	// Fable 5（2026-06-09 GA）是 Opus 之上的新档位；Mythos 5 同日发布，
+	// 仅通过 Project Glasswing 限量开放（邀请制，无自助开通）。
+	{
+		ID:            "claude-fable-5",
+		Vendor:        VendorAnthropic,
+		ContextWindow: 1_000_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true, // adaptive thinking（常开，不可显式关闭）
+	},
+	{
+		ID:            "claude-mythos-5",
+		Vendor:        VendorAnthropic,
+		ContextWindow: 1_000_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true, // adaptive thinking（常开）
+	},
 	{
 		ID:            "claude-opus-4-8",
 		Aliases:       []string{"claude-opus-4.8"},
