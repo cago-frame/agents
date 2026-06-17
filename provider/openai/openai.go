@@ -221,6 +221,11 @@ func (p *Provider) buildRequest(req *provider.CompletionRequest, stream bool) (o
 			}
 		} else {
 			om.Content = m.Content
+			if m.Role == provider.RoleTool && om.Content == "" {
+				// OpenAI-compatible APIs such as DeepSeek require tool messages to carry
+				// a content field. go-openai omits empty strings during JSON marshaling.
+				om.Content = " "
+			}
 		}
 		if m.Role == provider.RoleAssistant {
 			om.ReasoningContent = thinkingText(m.Thinking)

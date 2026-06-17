@@ -506,6 +506,36 @@ func TestBuildRequest_ToolCallsAndToolMessages(t *testing.T) {
 	}
 }
 
+func TestBuildRequest_EmptyToolMessageContentSurvivesJSON(t *testing.T) {
+	p := &Provider{}
+	got, err := p.buildRequest(&provider.CompletionRequest{
+		Model: "deepseek-v4-flash",
+		Messages: []provider.Message{
+			{
+				Role: provider.RoleAssistant,
+				ToolCalls: []provider.ToolCall{{
+					ID: "call_1", Type: provider.ToolTypeFunction,
+					Function: provider.ToolCallFunction{Name: "noop", Arguments: `{}`},
+				}},
+			},
+			{Role: provider.RoleTool, ToolCallID: "call_1", Name: "noop", Content: ""},
+		},
+	}, false)
+	if err != nil {
+		t.Fatalf("buildRequest: %v", err)
+	}
+	raw, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	if !strings.Contains(string(raw), `"role":"tool"`) {
+		t.Fatalf("marshaled request missing tool message: %s", raw)
+	}
+	if !strings.Contains(string(raw), `"content":" "`) {
+		t.Fatalf("tool message content field was omitted: %s", raw)
+	}
+}
+
 func TestBuildRequest_AssistantThinkingAsReasoningContent(t *testing.T) {
 	p := &Provider{}
 	got, err := p.buildRequest(&provider.CompletionRequest{
