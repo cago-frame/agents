@@ -12,12 +12,17 @@ func TestGet_KnownModels(t *testing.T) {
 		// Anthropic
 		{"claude-fable-5", VendorAnthropic, 1_000_000, true},
 		{"claude-mythos-5", VendorAnthropic, 1_000_000, true},
+		{"claude-opus-5", VendorAnthropic, 1_000_000, true},
+		{"claude-sonnet-5", VendorAnthropic, 1_000_000, true},
 		{"claude-opus-4-8", VendorAnthropic, 1_000_000, true},
 		{"claude-opus-4-7", VendorAnthropic, 1_000_000, true},
 		{"claude-opus-4-6", VendorAnthropic, 1_000_000, true},
 		{"claude-sonnet-4-6", VendorAnthropic, 1_000_000, true},
 		{"claude-haiku-4-5", VendorAnthropic, 200_000, true},
 		// OpenAI
+		{"gpt-5.6-sol", VendorOpenAI, 1_050_000, true},
+		{"gpt-5.6-terra", VendorOpenAI, 1_050_000, true},
+		{"gpt-5.6-luna", VendorOpenAI, 1_050_000, true},
 		{"gpt-5.5", VendorOpenAI, 1_050_000, true},
 		{"gpt-5.4", VendorOpenAI, 1_050_000, true},
 		{"gpt-5.3", VendorOpenAI, 400_000, true},
@@ -40,6 +45,7 @@ func TestGet_KnownModels(t *testing.T) {
 		{"qwen3-coder-plus", VendorAlibaba, 1_000_000, true},
 		{"qwen3-vl-plus", VendorAlibaba, 262_144, true},
 		// Kimi
+		{"kimi-k3", VendorMoonshot, 1_048_576, true},
 		{"kimi-k2.6", VendorMoonshot, 256_000, true},
 		{"kimi-k2.6-instant", VendorMoonshot, 256_000, true},
 		// Xiaomi MiMo
@@ -98,6 +104,10 @@ func TestGet_Aliases(t *testing.T) {
 		{"deepseek-chat", "deepseek-v4-flash"},
 		{"deepseek-reasoner", "deepseek-v4-pro"},
 		{"gpt-5.3-codex", "gpt-5-codex"},
+		{"gpt-5.6", "gpt-5.6-sol"},
+		{"gpt-5-6-sol", "gpt-5.6-sol"},
+		{"gpt-5-6-terra", "gpt-5.6-terra"},
+		{"gpt-5-6-luna", "gpt-5.6-luna"},
 		{"minimax-2.7", "minimax-m2.7"},
 		{"qwen-max", "qwen3-max"},
 		{"kimi-k2", "kimi-k2.6"},
@@ -123,15 +133,15 @@ func TestByVendor(t *testing.T) {
 		v    Vendor
 		want int
 	}{
-		{VendorAnthropic, 7},
-		{VendorOpenAI, 4},
+		{VendorAnthropic, 9},
+		{VendorOpenAI, 7},
 		{VendorZhipu, 3},
 		{VendorMiniMax, 1},
 		{VendorGoogle, 3},
 		{VendorDeepSeek, 2},
 		{VendorXAI, 2},
 		{VendorAlibaba, 3},
-		{VendorMoonshot, 2},
+		{VendorMoonshot, 3},
 		{VendorXiaomi, 1},
 	}
 	for _, c := range cases {
@@ -180,5 +190,11 @@ func TestSupports(t *testing.T) {
 	dv4 := MustGet("deepseek-v4-pro")
 	if dv4.Multimodal() {
 		t.Error("deepseek-v4-pro should be text-only")
+	}
+	k3 := MustGet("kimi-k3")
+	for _, m := range []Modality{ModalityText, ModalityImage, ModalityVideo} {
+		if !k3.Supports(m) {
+			t.Errorf("kimi-k3 should support %s", m)
+		}
 	}
 }

@@ -2,7 +2,8 @@ package models
 
 // catalog 全量模型清单。新增 / 修订模型时只需要修改这个变量。
 //
-// 数值来源：各厂商官方文档（2026-04 快照）。
+// 数值来源：各厂商官方文档（2026-04 快照；2026-07 增补 Claude Opus 5 /
+// Sonnet 5、GPT-5.6 sol·terra·luna、Kimi K3）。
 //   - Anthropic: https://platform.claude.com/docs/en/about-claude/models/overview
 //   - OpenAI:    https://platform.openai.com/docs/models
 //   - 智谱 GLM:  https://docs.z.ai/release-notes/new-released
@@ -15,9 +16,10 @@ package models
 // ContextWindow = 输入+输出合计窗口（tokens）；MaxOutput = 单次响应最大输出 tokens。
 var catalog = []Info{
 	// ============ Anthropic Claude ============
-	// 官方当前主推：Fable 5 / Opus 4.8 / Sonnet 4.6 / Haiku 4.5。
+	// 官方当前主推：Fable 5 / Opus 5 / Sonnet 5 / Haiku 4.5。
 	// Fable 5（2026-06-09 GA）是 Opus 之上的新档位；Mythos 5 同日发布，
 	// 仅通过 Project Glasswing 限量开放（邀请制，无自助开通）。
+	// Opus 4.8 及更早已转入 legacy，见下方。
 	{
 		ID:            "claude-fable-5",
 		Vendor:        VendorAnthropic,
@@ -33,6 +35,25 @@ var catalog = []Info{
 		MaxOutput:     128_000,
 		Modalities:    []Modality{ModalityText, ModalityImage},
 		Thinking:      true, // adaptive thinking（常开）
+	},
+	{
+		// Opus 5（2026-07-24）接替 Opus 4.8；Claude API / Claude Code 上
+		// effort 参数默认 high。
+		ID:            "claude-opus-5",
+		Vendor:        VendorAnthropic,
+		ContextWindow: 1_000_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true, // adaptive thinking
+	},
+	{
+		// Sonnet 5（2026-06-30）：接近 Opus 4.8 的表现，价格更低。
+		ID:            "claude-sonnet-5",
+		Vendor:        VendorAnthropic,
+		ContextWindow: 1_000_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true, // adaptive thinking
 	},
 	{
 		ID:            "claude-opus-4-8",
@@ -81,8 +102,40 @@ var catalog = []Info{
 	},
 
 	// ============ OpenAI GPT-5 系列 ============
+	// 5.6（2026-07-09）分 sol / terra / luna 三档，同窗口同输出上限，差别在
+	// 能力档位与价格；裸 "gpt-5.6" 指向 sol。
 	// 5.4/5.5 默认上下文窗口 1.05M（>272K input 起按 2x/1.5x 计费）；
 	// 5.3 沿用 5.0/5.1/5.2 的 400K；codex 走代码工作流，模态以文本+图为主。
+	{
+		// 前沿档：复杂专业任务
+		ID:            "gpt-5.6-sol",
+		Aliases:       []string{"gpt-5.6", "gpt-5-6", "gpt-5-6-sol"},
+		Vendor:        VendorOpenAI,
+		ContextWindow: 1_050_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true,
+	},
+	{
+		// 均衡档：能力与成本平衡，面向常规生产负载
+		ID:            "gpt-5.6-terra",
+		Aliases:       []string{"gpt-5-6-terra"},
+		Vendor:        VendorOpenAI,
+		ContextWindow: 1_050_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true,
+	},
+	{
+		// 高吞吐低价档
+		ID:            "gpt-5.6-luna",
+		Aliases:       []string{"gpt-5-6-luna"},
+		Vendor:        VendorOpenAI,
+		ContextWindow: 1_050_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true,
+	},
 	{
 		ID:            "gpt-5.5",
 		Aliases:       []string{"gpt-5-5"},
@@ -246,7 +299,18 @@ var catalog = []Info{
 	},
 
 	// ============ 月之暗面 Kimi ============
+	// K3（2026-07-16）：2.8T MoE，1M 上下文 + 原生视觉；thinking 常开，
+	// 只能通过 reasoning_effort（low/high/max）调档，无法关闭。
 	// K2.6（2026-04-20）原生支持 thinking + instant 双模式，按不同 model id 区分。
+	{
+		// max_completion_tokens 默认 131072，最大可设到 1048576（= 整个窗口）。
+		ID:            "kimi-k3",
+		Vendor:        VendorMoonshot,
+		ContextWindow: 1_048_576,
+		MaxOutput:     1_048_576,
+		Modalities:    []Modality{ModalityText, ModalityImage, ModalityVideo},
+		Thinking:      true,
+	},
 	{
 		ID:            "kimi-k2.6",
 		Aliases:       []string{"kimi-k2-6", "kimi-k2"},
