@@ -3,6 +3,7 @@ package blocks
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sync"
 )
 
@@ -55,6 +56,34 @@ func RegisterFactory[T ContentBlock]() {
 		}
 		return b, nil
 	})
+}
+
+// RegisteredTypes returns every discriminator currently in the registry,
+// sorted lexicographically. The registry is otherwise opaque from the
+// outside — Encode / Decode only answer questions about one block at a time,
+// so a host that wants to project the vocabulary (generating a type table for
+// an out-of-process consumer, say) has nothing to enumerate.
+//
+// Two properties callers depend on:
+//
+//   - The result is a fresh, sorted slice, never the registry's own storage.
+//     Map iteration order would otherwise reshuffle a generator's output on
+//     every run, and generators that diff their output byte-for-byte would
+//     never settle.
+//   - It reads under registryMu, so calling it concurrently with Register is
+//     safe.
+//
+// Registration happens in init(), so the answer is only as complete as the
+// set of packages linked into the current binary.
+func RegisteredTypes() []string {
+	registryMu.RLock()
+	out := make([]string, 0, len(registry))
+	for typ := range registry {
+		out = append(out, typ)
+	}
+	registryMu.RUnlock()
+	slices.Sort(out)
+	return out
 }
 
 // Encode serializes b to StoredBlock form. Encode -> Decode is a lossless

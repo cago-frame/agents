@@ -2,6 +2,7 @@ package blocks_test
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 
 	"github.com/cago-frame/agents/agent/blocks"
@@ -117,6 +118,45 @@ func TestRegister_DuplicateTypePanics(t *testing.T) {
 	blocks.Register("text", func(_ []byte) (blocks.ContentBlock, error) {
 		return blocks.TextBlock{}, nil
 	})
+}
+
+func TestRegisteredTypes_ListsEveryBuiltinDiscriminator(t *testing.T) {
+	// The whole point of the accessor: the registry is otherwise write-only
+	// from the outside, so a host that wants to project the vocabulary
+	// (a generated type table for an out-of-process consumer, say) has no way
+	// to ask what is in it. Comparing against the full literal list — rather
+	// than spot-checking a couple of entries — makes adding a block variant
+	// without thinking about downstream consumers impossible.
+	got := blocks.RegisteredTypes()
+	want := []string{
+		"display_text",
+		"image",
+		"notice",
+		"ref",
+		"summary",
+		"text",
+		"thinking",
+		"tool_result",
+		"tool_use",
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("RegisteredTypes() = %q, want %q (sorted)", got, want)
+	}
+}
+
+func TestRegisteredTypes_ReturnsACopy(t *testing.T) {
+	// Handing out the internal slice — or worse, the map — would let one
+	// caller corrupt every other caller's view of the registry.
+	first := blocks.RegisteredTypes()
+	if len(first) == 0 {
+		t.Fatal("RegisteredTypes() is empty; the built-in init() should have populated it")
+	}
+	first[0] = "clobbered"
+
+	second := blocks.RegisteredTypes()
+	if second[0] == "clobbered" {
+		t.Fatal("mutating the returned slice changed the next call's result")
+	}
 }
 
 func TestJSONShape_HasTypeDiscriminator(t *testing.T) {
