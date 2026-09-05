@@ -16,10 +16,28 @@ package models
 // ContextWindow = 输入+输出合计窗口（tokens）；MaxOutput = 单次响应最大输出 tokens。
 var catalog = []Info{
 	// ============ Anthropic Claude ============
-	// 官方当前主推：Fable 5 / Opus 5 / Sonnet 5 / Haiku 4.5。
+	// 官方当前主推：Fable 5.1 / Opus 5 / Sonnet 5 / Haiku 4.5。
 	// Fable 5（2026-06-09 GA）是 Opus 之上的新档位；Mythos 5 同日发布，
 	// 仅通过 Project Glasswing 限量开放（邀请制，无自助开通）。
 	// Opus 4.8 及更早已转入 legacy，见下方。
+	{
+		ID:            "claude-fable-5.1",
+		Aliases:       []string{"claude-fable-5-1"},
+		Vendor:        VendorAnthropic,
+		ContextWindow: 1_000_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true,
+	},
+	{
+		ID:            "claude-mythos-5.1",
+		Aliases:       []string{"claude-mythos-5-1"},
+		Vendor:        VendorAnthropic,
+		ContextWindow: 1_000_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true,
+	},
 	{
 		ID:            "claude-fable-5",
 		Vendor:        VendorAnthropic,
@@ -101,7 +119,16 @@ var catalog = []Info{
 		Thinking:      true,
 	},
 
-	// ============ OpenAI GPT-5 系列 ============
+	// ============ OpenAI GPT-6 / GPT-5 系列 ============
+	{
+		ID:            "gpt-6-astra",
+		Aliases:       []string{"gpt-6"},
+		Vendor:        VendorOpenAI,
+		ContextWindow: 1_050_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true,
+	},
 	// 5.6（2026-07-09）分 sol / terra / luna 三档，同窗口同输出上限，差别在
 	// 能力档位与价格；裸 "gpt-5.6" 指向 sol。
 	// 5.4/5.5 默认上下文窗口 1.05M（>272K input 起按 2x/1.5x 计费）；
