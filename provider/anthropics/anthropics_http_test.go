@@ -433,3 +433,64 @@ func TestAnthropic_ChatCompletion_ImageMultiContent_URL(t *testing.T) {
 		t.Fatalf("body missing image url:\n%s", bodyStr)
 	}
 }
+
+func TestNewProvider_Headers(t *testing.T) {
+	const body = `{"id":"msg_1","type":"message","role":"assistant","model":"claude-sonnet-4-6",
+		"stop_reason":"end_turn","content":[{"type":"text","text":"ok"}],
+		"usage":{"input_tokens":1,"output_tokens":1}}`
+
+	t.Run("configured headers reach the request", func(t *testing.T) {
+		var got http.Header
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			got = r.Header.Clone()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, body)
+		}))
+		defer srv.Close()
+		noRetry := 0
+		p := NewProvider(Config{
+			APIKey:     "test",
+			BaseURL:    srv.URL,
+			MaxRetries: &noRetry,
+			Headers:    map[string]string{"X-Opencode-Session": "sess-1", "X-Trace": "t-9"},
+		})
+
+		if _, err := p.ChatCompletion(context.Background(), &provider.CompletionRequest{
+			Model:    "claude-sonnet-4-6",
+			Messages: []provider.Message{{Role: provider.RoleUser, Content: "hi"}},
+		}); err != nil {
+			t.Fatalf("ChatCompletion: %v", err)
+		}
+		if v := got.Get("X-Opencode-Session"); v != "sess-1" {
+			t.Errorf("X-Opencode-Session = %q, want sess-1", v)
+		}
+		if v := got.Get("X-Trace"); v != "t-9" {
+			t.Errorf("X-Trace = %q, want t-9", v)
+		}
+		if v := got.Get("X-Api-Key"); v != "test" {
+			t.Errorf("custom headers must not displace auth: X-Api-Key = %q", v)
+		}
+	})
+
+	t.Run("no headers configured leaves the request untouched", func(t *testing.T) {
+		var got http.Header
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			got = r.Header.Clone()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, body)
+		}))
+		defer srv.Close()
+		noRetry := 0
+		p := NewProvider(Config{APIKey: "test", BaseURL: srv.URL, MaxRetries: &noRetry})
+
+		if _, err := p.ChatCompletion(context.Background(), &provider.CompletionRequest{
+			Model:    "claude-sonnet-4-6",
+			Messages: []provider.Message{{Role: provider.RoleUser, Content: "hi"}},
+		}); err != nil {
+			t.Fatalf("ChatCompletion: %v", err)
+		}
+		if v := got.Get("X-Opencode-Session"); v != "" {
+			t.Errorf("unexpected header leaked: X-Opencode-Session = %q", v)
+		}
+	})
+}

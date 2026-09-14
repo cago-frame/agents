@@ -44,6 +44,9 @@ type Config struct {
 	MaxRetries *int
 	// CacheTTL 控制 cache_control 上挂的 TTL。零值时不写 ttl 字段，由 Anthropic 服务端按默认 5m 处理。
 	CacheTTL CacheTTL
+	// Headers 附加到每个请求上的自定义头，用于对接要求额外头的第三方网关
+	// （例如 OpenCode 的 x-opencode-session）。空值时请求头不受影响。
+	Headers map[string]string
 }
 
 func NewProvider(config Config) provider.Provider {
@@ -53,6 +56,9 @@ func NewProvider(config Config) provider.Provider {
 	}
 	if config.MaxRetries != nil {
 		opts = append(opts, option.WithMaxRetries(*config.MaxRetries))
+	}
+	for k, v := range config.Headers {
+		opts = append(opts, option.WithHeader(k, v))
 	}
 	return &Provider{client: anthropic.NewClient(opts...), cacheTTL: config.CacheTTL}
 }
