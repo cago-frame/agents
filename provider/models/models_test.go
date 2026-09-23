@@ -11,6 +11,7 @@ func TestGet_KnownModels(t *testing.T) {
 	}{
 		// Anthropic
 		{"claude-fable-5.1", VendorAnthropic, 1_000_000, true},
+		{"claude-opus-5.5", VendorAnthropic, 1_000_000, true},
 		{"claude-mythos-5.1", VendorAnthropic, 1_000_000, true},
 		{"claude-fable-5", VendorAnthropic, 1_000_000, true},
 		{"claude-mythos-5", VendorAnthropic, 1_000_000, true},
@@ -23,6 +24,8 @@ func TestGet_KnownModels(t *testing.T) {
 		{"claude-haiku-4-5", VendorAnthropic, 200_000, true},
 		// OpenAI
 		{"gpt-6-astra", VendorOpenAI, 1_050_000, true},
+		{"gpt-6-sol", VendorOpenAI, 1_050_000, true},
+		{"gpt-6-luna", VendorOpenAI, 1_050_000, true},
 		{"gpt-5.6-sol", VendorOpenAI, 1_050_000, true},
 		{"gpt-5.6-terra", VendorOpenAI, 1_050_000, true},
 		{"gpt-5.6-luna", VendorOpenAI, 1_050_000, true},
@@ -100,6 +103,7 @@ func TestGet_Aliases(t *testing.T) {
 		alias string
 		id    string
 	}{
+		{"claude-opus-5-5", "claude-opus-5.5"},
 		{"claude-opus-4.8", "claude-opus-4-8"},
 		{"claude-opus-4.7", "claude-opus-4-7"},
 		{"gemini-3", "gemini-3-pro"},
@@ -136,8 +140,8 @@ func TestByVendor(t *testing.T) {
 		v    Vendor
 		want int
 	}{
-		{VendorAnthropic, 11},
-		{VendorOpenAI, 8},
+		{VendorAnthropic, 12},
+		{VendorOpenAI, 10},
 		{VendorZhipu, 3},
 		{VendorMiniMax, 1},
 		{VendorGoogle, 3},

@@ -3,7 +3,8 @@ package models
 // catalog 全量模型清单。新增 / 修订模型时只需要修改这个变量。
 //
 // 数值来源：各厂商官方文档（2026-04 快照；2026-07 增补 Claude Opus 5 /
-// Sonnet 5、GPT-5.6 sol·terra·luna、Kimi K3）。
+// Sonnet 5、GPT-5.6 sol·terra·luna、Kimi K3；2026-09 增补 Claude Opus 5.5、
+// GPT-6 sol·luna）。
 //   - Anthropic: https://platform.claude.com/docs/en/about-claude/models/overview
 //   - OpenAI:    https://platform.openai.com/docs/models
 //   - 智谱 GLM:  https://docs.z.ai/release-notes/new-released
@@ -16,13 +17,24 @@ package models
 // ContextWindow = 输入+输出合计窗口（tokens）；MaxOutput = 单次响应最大输出 tokens。
 var catalog = []Info{
 	// ============ Anthropic Claude ============
-	// 官方当前主推：Fable 5.1 / Opus 5 / Sonnet 5 / Haiku 4.5。
+	// 官方当前主推：Fable 5.1 / Opus 5.5 / Sonnet 5 / Haiku 4.5。
 	// Fable 5（2026-06-09 GA）是 Opus 之上的新档位；Mythos 5 同日发布，
 	// 仅通过 Project Glasswing 限量开放（邀请制，无自助开通）。
 	// Opus 4.8 及更早已转入 legacy，见下方。
 	{
 		ID:            "claude-fable-5.1",
 		Aliases:       []string{"claude-fable-5-1"},
+		Vendor:        VendorAnthropic,
+		ContextWindow: 1_000_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true,
+	},
+	{
+		// Opus 5.5（2026-09-22）接替 Opus 5；adaptive thinking 常开不可关，
+		// effort 默认 medium。
+		ID:            "claude-opus-5.5",
+		Aliases:       []string{"claude-opus-5-5"},
 		Vendor:        VendorAnthropic,
 		ContextWindow: 1_000_000,
 		MaxOutput:     128_000,
@@ -123,6 +135,26 @@ var catalog = []Info{
 	{
 		ID:            "gpt-6-astra",
 		Aliases:       []string{"gpt-6"},
+		Vendor:        VendorOpenAI,
+		ContextWindow: 1_050_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true,
+	},
+	// GPT-6 sol / luna（2026-09-22）把 Astra 的能力下放到更快更便宜的两档，
+	// 与 Astra 同窗口同输出上限。
+	{
+		// 复杂编码与 agent 工作流
+		ID:            "gpt-6-sol",
+		Vendor:        VendorOpenAI,
+		ContextWindow: 1_050_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true,
+	},
+	{
+		// 高吞吐低价档
+		ID:            "gpt-6-luna",
 		Vendor:        VendorOpenAI,
 		ContextWindow: 1_050_000,
 		MaxOutput:     128_000,
