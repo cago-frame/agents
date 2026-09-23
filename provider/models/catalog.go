@@ -4,7 +4,7 @@ package models
 //
 // 数值来源：各厂商官方文档（2026-04 快照；2026-07 增补 Claude Opus 5 /
 // Sonnet 5、GPT-5.6 sol·terra·luna、Kimi K3；2026-09 增补 Claude Opus 5.5、
-// GPT-6 sol·luna）。
+// GPT-6 sol·luna、Grok 4.7、DeepSeek V4.1 Flash、MiMo-V2.6）。
 //   - Anthropic: https://platform.claude.com/docs/en/about-claude/models/overview
 //   - OpenAI:    https://platform.openai.com/docs/models
 //   - 智谱 GLM:  https://docs.z.ai/release-notes/new-released
@@ -307,7 +307,19 @@ var catalog = []Info{
 	},
 
 	// ============ xAI Grok ============
-	// 当前推荐 grok-4.20（2026-03 GA）；grok-4-fast 为低价高吞吐变体。
+	// 当前推荐 grok-4.7（2026-09-21）；grok-4.20（2026-03 GA）保留 2M 窗口，
+	// grok-4-fast 为低价高吞吐变体。grok-4.7-fast 只在 Cursor / Grok Build
+	// 提供，API 不可用，不收录。
+	{
+		// 官方写明"无文本输出上限"，实际受窗口约束，MaxOutput 记为整个窗口。
+		ID:            "grok-4.7",
+		Aliases:       []string{"grok-4-7"},
+		Vendor:        VendorXAI,
+		ContextWindow: 500_000,
+		MaxOutput:     500_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true, // reasoning effort low/medium/high/xhigh，默认 high
+	},
 	{
 		ID:            "grok-4.20",
 		Aliases:       []string{"grok-4-20", "grok-4"},
@@ -391,7 +403,39 @@ var catalog = []Info{
 	},
 
 	// ============ 小米 MiMo ============
+	// MiMo-V2.6（2026-09-22）分 pro / pro-ultraspeed / flash 三档，全系原生
+	// 全模态、1M 窗口、128K 输出，thinking 可通过 thinking.type=disabled 关闭。
 	// MiMo-V2.5（2026-04-22）：310B Sparse MoE，原生多模态（text/image/audio/video）。
+	{
+		// 旗舰推理档，万亿参数
+		ID:            "mimo-v2.6-pro",
+		Aliases:       []string{"mimo-v2-6-pro"},
+		Vendor:        VendorXiaomi,
+		ContextWindow: 1_000_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage, ModalityAudio, ModalityVideo},
+		Thinking:      true,
+	},
+	{
+		// 与 pro 同能力，输出速度最高 20 倍，面向低延迟场景
+		ID:            "mimo-v2.6-pro-ultraspeed",
+		Aliases:       []string{"mimo-v2-6-pro-ultraspeed"},
+		Vendor:        VendorXiaomi,
+		ContextWindow: 1_000_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage, ModalityAudio, ModalityVideo},
+		Thinking:      true,
+	},
+	{
+		// 低价高频档
+		ID:            "mimo-v2.6-flash",
+		Aliases:       []string{"mimo-v2-6-flash"},
+		Vendor:        VendorXiaomi,
+		ContextWindow: 1_000_000,
+		MaxOutput:     128_000,
+		Modalities:    []Modality{ModalityText, ModalityImage, ModalityAudio, ModalityVideo},
+		Thinking:      true,
+	},
 	{
 		ID:            "mimo-v2.5",
 		Aliases:       []string{"mimo-v2-5", "mimo-2.5", "MiMo-V2.5"},
@@ -404,6 +448,18 @@ var catalog = []Info{
 
 	// ============ DeepSeek ============
 	// V4 系列原生 1M 上下文、384K 单次输出，纯文本。
+	// V4.1 Flash（2026-09-10）官方 id 为 deepseek-flash，原生视觉；官方 API 上
+	// deepseek-v4-flash 已重定向到它，deepseek-v4-pro 在 V4.1 Pro 上线前也临时
+	// 路由到它。两条 V4 条目保留给仍提供 V4 快照的第三方渠道。
+	{
+		ID:            "deepseek-flash",
+		Aliases:       []string{"deepseek-v4.1-flash", "deepseek-v4-1-flash"},
+		Vendor:        VendorDeepSeek,
+		ContextWindow: 1_000_000,
+		MaxOutput:     384_000,
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		Thinking:      true, // 默认 thinking，可切非 thinking
+	},
 	{
 		ID:            "deepseek-v4-pro",
 		Aliases:       []string{"deepseek-v4", "deepseek-reasoner"},

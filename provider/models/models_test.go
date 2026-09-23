@@ -44,6 +44,7 @@ func TestGet_KnownModels(t *testing.T) {
 		{"gemini-3.1-pro", VendorGoogle, 1_000_000, true},
 		{"gemini-3-flash", VendorGoogle, 1_000_000, true},
 		// xAI
+		{"grok-4.7", VendorXAI, 500_000, true},
 		{"grok-4.20", VendorXAI, 2_000_000, true},
 		{"grok-4-fast", VendorXAI, 2_000_000, true},
 		// Qwen
@@ -55,8 +56,12 @@ func TestGet_KnownModels(t *testing.T) {
 		{"kimi-k2.6", VendorMoonshot, 256_000, true},
 		{"kimi-k2.6-instant", VendorMoonshot, 256_000, true},
 		// Xiaomi MiMo
+		{"mimo-v2.6-pro", VendorXiaomi, 1_000_000, true},
+		{"mimo-v2.6-pro-ultraspeed", VendorXiaomi, 1_000_000, true},
+		{"mimo-v2.6-flash", VendorXiaomi, 1_000_000, true},
 		{"mimo-v2.5", VendorXiaomi, 1_000_000, true},
 		// DeepSeek
+		{"deepseek-flash", VendorDeepSeek, 1_000_000, true},
 		{"deepseek-v4-pro", VendorDeepSeek, 1_000_000, false},
 		{"deepseek-v4-flash", VendorDeepSeek, 1_000_000, false},
 	}
@@ -120,6 +125,10 @@ func TestGet_Aliases(t *testing.T) {
 		{"kimi-k2", "kimi-k2.6"},
 		{"kimi-k2-instant", "kimi-k2.6-instant"},
 		{"grok-4", "grok-4.20"},
+		{"grok-4-7", "grok-4.7"},
+		{"deepseek-v4.1-flash", "deepseek-flash"},
+		{"mimo-v2-6-pro", "mimo-v2.6-pro"},
+		{"mimo-v2-6-flash", "mimo-v2.6-flash"},
 		{"mimo-2.5", "mimo-v2.5"},
 	}
 	for _, c := range cases {
@@ -145,11 +154,11 @@ func TestByVendor(t *testing.T) {
 		{VendorZhipu, 3},
 		{VendorMiniMax, 1},
 		{VendorGoogle, 3},
-		{VendorDeepSeek, 2},
-		{VendorXAI, 2},
+		{VendorDeepSeek, 3},
+		{VendorXAI, 3},
 		{VendorAlibaba, 3},
 		{VendorMoonshot, 3},
-		{VendorXiaomi, 1},
+		{VendorXiaomi, 4},
 	}
 	for _, c := range cases {
 		if n := len(ByVendor(c.v)); n != c.want {
@@ -197,6 +206,15 @@ func TestSupports(t *testing.T) {
 	dv4 := MustGet("deepseek-v4-pro")
 	if dv4.Multimodal() {
 		t.Error("deepseek-v4-pro should be text-only")
+	}
+	if !MustGet("deepseek-flash").Supports(ModalityImage) {
+		t.Error("deepseek-flash should support image")
+	}
+	mimo := MustGet("mimo-v2.6-flash")
+	for _, m := range []Modality{ModalityText, ModalityImage, ModalityAudio, ModalityVideo} {
+		if !mimo.Supports(m) {
+			t.Errorf("mimo-v2.6-flash should support %s", m)
+		}
 	}
 	k3 := MustGet("kimi-k3")
 	for _, m := range []Modality{ModalityText, ModalityImage, ModalityVideo} {
