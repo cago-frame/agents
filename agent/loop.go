@@ -108,7 +108,12 @@ func (r *Runner) runTurn(ctx context.Context, _ []ContentBlock) iter.Seq[Event] 
 				if err != nil {
 					retryAttempt++
 					if delay, ok := r.shouldRetry(err, retryAttempt); ok {
-						if !r.handleRetry(ctx, turnID, retryAttempt, delay, err, lastUsage, yield) {
+						switch r.handleRetry(ctx, turnID, retryAttempt, delay, err, lastUsage, yield) {
+						case retryDropped:
+							return
+						case retryCancelled:
+							r.cancelPartial(ctx, turnID, lastUsage, yield)
+							emitDone()
 							return
 						}
 						continue retryLoop
@@ -151,7 +156,12 @@ func (r *Runner) runTurn(ctx context.Context, _ []ContentBlock) iter.Seq[Event] 
 						if chunk.Err != nil {
 							retryAttempt++
 							if delay, ok := r.shouldRetry(chunk.Err, retryAttempt); ok {
-								if !r.handleRetry(ctx, turnID, retryAttempt, delay, chunk.Err, lastUsage, yield) {
+								switch r.handleRetry(ctx, turnID, retryAttempt, delay, chunk.Err, lastUsage, yield) {
+								case retryDropped:
+									return
+								case retryCancelled:
+									r.cancelPartial(ctx, turnID, lastUsage, yield)
+									emitDone()
 									return
 								}
 								continue retryLoop
