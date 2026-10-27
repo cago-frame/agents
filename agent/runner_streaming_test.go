@@ -3,6 +3,7 @@ package agent_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -490,6 +491,61 @@ func TestRunner_Retry_ExhaustedFallsBackToError(t *testing.T) {
 	}
 	if !strings.Contains(last.PartialDetail, "upstream busy") {
 		t.Fatalf("PartialDetail = %q, want it to contain the cause", last.PartialDetail)
+	}
+}
+
+// TestRunner_Retry_CancelDuringBackoff verifies that a Cancel arriving while
+// the runner sleeps between retry attempts ends the turn like any other
+// cancel: EventCancelled + EventTurnEnd(StopCancelled) + EventDone. Without
+// them the consumer never learns the turn stopped.
+func TestRunner_Retry_CancelDuringBackoff(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		prov *providertest.Mock
+	}{
+		{"chunk_err", providertest.New().QueueStream(provider.StreamChunk{
+			Err: &provider.ProviderError{StatusCode: 503, Err: errors.New("upstream busy")},
+		})},
+		{"chat_stream_err", providertest.New().QueueError(
+			&provider.ProviderError{StatusCode: 503, Err: errors.New("upstream busy")},
+		)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := agent.New(tc.prov, agent.Retry(agent.RetryPolicy{
+				MaxAttempts:  3,
+				InitialDelay: time.Minute,
+			}))
+			r := a.Runner(agent.NewConversation())
+			defer func() { _ = r.Close() }()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			events, _ := r.Send(ctx, "go")
+			var kinds []agent.EventKind
+			var stop agent.StopReason
+			for ev := range events {
+				kinds = append(kinds, ev.Kind)
+				switch ev.Kind {
+				case agent.EventRetry:
+					go func() {
+						time.Sleep(20 * time.Millisecond)
+						_ = r.Cancel("user_stop")
+					}()
+				case agent.EventTurnEnd:
+					stop = ev.StopReason
+				}
+			}
+			if ctx.Err() != nil {
+				t.Fatalf("turn did not end on Cancel: %v", ctx.Err())
+			}
+			want := []agent.EventKind{agent.EventRetry, agent.EventCancelled, agent.EventTurnEnd, agent.EventDone}
+			if !slices.Equal(kinds, want) {
+				t.Fatalf("events = %v, want %v", kinds, want)
+			}
+			if stop != agent.StopCancelled {
+				t.Fatalf("stop reason = %v, want StopCancelled", stop)
+			}
+		})
 	}
 }
 

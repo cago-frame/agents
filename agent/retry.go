@@ -56,11 +56,22 @@ func Retry(policy RetryPolicy) Option {
 	}
 }
 
+// retryOutcome tells the turn loop how handleRetry ended.
+type retryOutcome int
+
+const (
+	// retryContinue: backoff elapsed, run the next attempt.
+	retryContinue retryOutcome = iota
+	// retryDropped: the consumer dropped the iter; return without yielding.
+	retryDropped
+	// retryCancelled: ctx ended during backoff; end the turn via cancelPartial.
+	retryCancelled
+)
+
 // handleRetry finalizes the in-progress partial as PartialErrored (preserving
 // streamed text / thinking / RawArgs + last usage), emits an EventRetry frame
-// with the attempt count and backoff, then sleeps the delay. Returns false if
-// the consumer dropped the iter (caller should return immediately).
-func (r *Runner) handleRetry(ctx context.Context, turnID string, attempt int, delay time.Duration, cause error, usage *provider.Usage, yield func(Event) bool) bool {
+// with the attempt count and backoff, then sleeps the delay.
+func (r *Runner) handleRetry(ctx context.Context, turnID string, attempt int, delay time.Duration, cause error, usage *provider.Usage, yield func(Event) bool) retryOutcome {
 	r.mu.Lock()
 	idx := r.partialIndex
 	r.partialIndex = -1
@@ -84,18 +95,18 @@ func (r *Runner) handleRetry(ctx context.Context, turnID string, attempt int, de
 	}
 	r.dispatcher.emit(ctx, ev)
 	if !yield(ev) {
-		return false
+		return retryDropped
 	}
 	if delay > 0 {
 		t := time.NewTimer(delay)
 		defer t.Stop()
 		select {
 		case <-ctx.Done():
-			return false
+			return retryCancelled
 		case <-t.C:
 		}
 	}
-	return true
+	return retryContinue
 }
 
 // shouldRetry decides whether the err is retryable per the policy and how
