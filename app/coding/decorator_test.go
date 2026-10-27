@@ -121,7 +121,7 @@ func TestSystem_WithToolDecorator_DoesNotTouchExtraTools(t *testing.T) {
 }
 
 func keys(m map[string]bool) []string {
-	var out []string
+	out := make([]string, 0, len(m))
 	for k := range m {
 		out = append(out, k)
 	}
