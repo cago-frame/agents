@@ -494,3 +494,43 @@ func TestNewProvider_Headers(t *testing.T) {
 		}
 	})
 }
+
+// countingTransport 记录经过它的请求数，用来确认调用方传入的 HTTP client 真正承载了请求。
+type countingTransport struct {
+	calls int
+}
+
+func (c *countingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	c.calls++
+	return http.DefaultTransport.RoundTrip(r)
+}
+
+func TestNewProvider_HTTPClient(t *testing.T) {
+	const body = `{"id":"msg_1","type":"message","role":"assistant","model":"claude-sonnet-4-6",
+		"stop_reason":"end_turn","content":[{"type":"text","text":"ok"}],
+		"usage":{"input_tokens":1,"output_tokens":1}}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, body)
+	}))
+	defer srv.Close()
+
+	transport := &countingTransport{}
+	noRetry := 0
+	p := NewProvider(Config{
+		APIKey:     "test",
+		BaseURL:    srv.URL,
+		MaxRetries: &noRetry,
+		HTTPClient: &http.Client{Transport: transport},
+	})
+
+	if _, err := p.ChatCompletion(context.Background(), &provider.CompletionRequest{
+		Model:    "claude-sonnet-4-6",
+		Messages: []provider.Message{{Role: provider.RoleUser, Content: "hi"}},
+	}); err != nil {
+		t.Fatalf("ChatCompletion: %v", err)
+	}
+	if transport.calls != 1 {
+		t.Errorf("configured HTTP client carried %d requests, want 1", transport.calls)
+	}
+}

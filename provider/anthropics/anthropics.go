@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -47,6 +48,9 @@ type Config struct {
 	// Headers 附加到每个请求上的自定义头，用于对接要求额外头的第三方网关
 	// （例如 OpenCode 的 x-opencode-session）。空值时请求头不受影响。
 	Headers map[string]string
+	// HTTPClient 承载所有请求的 HTTP client，用于让调用方接入自己的代理 / 传输层。
+	// nil 时沿用 SDK 默认（http.DefaultClient）。
+	HTTPClient *http.Client
 }
 
 func NewProvider(config Config) provider.Provider {
@@ -59,6 +63,9 @@ func NewProvider(config Config) provider.Provider {
 	}
 	for k, v := range config.Headers {
 		opts = append(opts, option.WithHeader(k, v))
+	}
+	if config.HTTPClient != nil {
+		opts = append(opts, option.WithHTTPClient(config.HTTPClient))
 	}
 	return &Provider{client: anthropic.NewClient(opts...), cacheTTL: config.CacheTTL}
 }
