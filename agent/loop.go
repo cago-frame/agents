@@ -106,6 +106,13 @@ func (r *Runner) runTurn(ctx context.Context, _ []ContentBlock) iter.Seq[Event] 
 
 				chunks, err := r.agent.cfg.prov.ChatStream(ctx, req)
 				if err != nil {
+					// The request failed because the turn was canceled (or timed out)
+					// before it went out — that is the cancel, not a provider error.
+					if ctx.Err() != nil {
+						r.cancelPartial(ctx, turnID, lastUsage, yield)
+						emitDone()
+						return
+					}
 					retryAttempt++
 					if delay, ok := r.shouldRetry(err, retryAttempt); ok {
 						switch r.handleRetry(ctx, turnID, retryAttempt, delay, err, lastUsage, yield) {
@@ -344,6 +351,14 @@ func (r *Runner) runTurn(ctx context.Context, _ []ContentBlock) iter.Seq[Event] 
 				if res.Stop {
 					stopHook = true
 				}
+			}
+			// A Cancel that landed while the tools ran ends the turn here, with every
+			// tool_use already paired with its result. Going on would fold still-queued
+			// steers into the canceled turn and send a request on the canceled ctx.
+			if ctx.Err() != nil {
+				r.cancelPartial(ctx, turnID, nil, yield)
+				emitDone()
+				return
 			}
 			if stopHook {
 				r.closeSteerWindow()
