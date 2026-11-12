@@ -26,8 +26,8 @@ func runBackground(ctx context.Context, cfg *config, displayCmd, resolvedCmd str
 	if cfg.env != nil {
 		cmd.Env = cfg.env
 	}
-	setProcessGroup(cmd)
-	cmd.Cancel = func() error { return killGroup(cmd) }
+	group := newProcGroup(cmd)
+	cmd.Cancel = group.kill
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -43,12 +43,14 @@ func runBackground(ctx context.Context, cfg *config, displayCmd, resolvedCmd str
 		cancel()
 		return nil, fmt.Errorf("bash: start: %w", err)
 	}
+	group.started()
 
 	job := &Job{
 		ID:        newJobID(),
 		Command:   displayCmd,
 		StartedAt: time.Now(),
 		cmd:       cmd,
+		group:     group,
 		status:    StatusRunning,
 		cancel:    cancel,
 		doneCh:    make(chan struct{}),
@@ -61,8 +63,9 @@ func runBackground(ctx context.Context, cfg *config, displayCmd, resolvedCmd str
 	go pumpToJob(&pumpWG, stderr, job)
 
 	go func() {
-		pumpWG.Wait()
+		awaitPumps(jobCtx, &pumpWG, stdout, stderr)
 		waitErr := cmd.Wait()
+		group.release()
 		job.mu.Lock()
 		job.endedAt = time.Now()
 		switch {

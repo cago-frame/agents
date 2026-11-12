@@ -181,8 +181,8 @@ func run(ctx context.Context, cfg *config, in map[string]any) (*agent.ToolResult
 	if cfg.env != nil {
 		cmd.Env = cfg.env
 	}
-	setProcessGroup(cmd)
-	cmd.Cancel = func() error { return killGroup(cmd) }
+	group := newProcGroup(cmd)
+	cmd.Cancel = group.kill
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -195,6 +195,8 @@ func run(ctx context.Context, cfg *config, in map[string]any) (*agent.ToolResult
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("bash: start: %w", err)
 	}
+	group.started()
+	defer group.release()
 
 	maxBytes := cfg.maxBytes
 	if maxBytes <= 0 {
@@ -206,7 +208,7 @@ func run(ctx context.Context, cfg *config, in map[string]any) (*agent.ToolResult
 	wg.Add(2)
 	go pump(&wg, stdout, collector)
 	go pump(&wg, stderr, collector)
-	wg.Wait()
+	awaitPumps(runCtx, &wg, stdout, stderr)
 	waitErr := cmd.Wait()
 	collector.close()
 
@@ -347,6 +349,37 @@ func (c *collector) tempPath() string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.tmpName
+}
+
+// pipeDrainAfterCancel bounds how long a canceled command may keep its output pipes
+// open. A descendant that escaped the kill (left the process group, or was created
+// before it joined the Windows job) still holds the inherited pipes, so the pumps never
+// see EOF and the call would hang until that descendant exits.
+const pipeDrainAfterCancel = time.Second
+
+// awaitPumps waits for the output pumps. Once ctx is done (cancel or timeout; the group
+// kill has already been triggered by exec.CommandContext) it gives the pipes
+// pipeDrainAfterCancel to close on their own, then closes them to release the pumps.
+// Without a cancel it waits as long as the command keeps the pipes open.
+func awaitPumps(ctx context.Context, wg *sync.WaitGroup, pipes ...io.Closer) {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return
+	case <-ctx.Done():
+	}
+	select {
+	case <-done:
+	case <-time.After(pipeDrainAfterCancel):
+		for _, p := range pipes {
+			_ = p.Close()
+		}
+		<-done
+	}
 }
 
 func pump(wg *sync.WaitGroup, r io.Reader, c *collector) {

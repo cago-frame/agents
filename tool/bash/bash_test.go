@@ -2,6 +2,7 @@ package bash_test
 
 import (
 	"context"
+	"os/exec"
 	"runtime"
 	"strings"
 	"testing"
@@ -94,6 +95,33 @@ func TestBashTimeout(t *testing.T) {
 	}
 	if dur > 2*time.Second {
 		t.Fatalf("did not actually timeout: %v", dur)
+	}
+}
+
+// A descendant that left the process group (setsid, daemonizing tools) survives the
+// group kill and keeps the inherited stdout open; the call must still end promptly
+// once canceled instead of waiting for that descendant to exit.
+func TestBashCancelReturnsWhenDetachedChildHoldsOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("posix-only")
+	}
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 is needed to detach a child into its own session")
+	}
+	cmd := `python3 -c 'import os, time; os.setsid(); time.sleep(20)' & wait`
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	time.AfterFunc(300*time.Millisecond, cancel)
+	start := time.Now()
+	_, err := bash.New().Call(ctx, map[string]any{"command": cmd})
+	dur := time.Since(start)
+
+	if err == nil || !strings.Contains(err.Error(), "Command aborted") {
+		t.Fatalf("expected aborted Go error, got %v", err)
+	}
+	if dur > 5*time.Second {
+		t.Fatalf("returned after %v; want within seconds of the 300ms cancel", dur)
 	}
 }
 
