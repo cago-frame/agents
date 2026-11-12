@@ -50,10 +50,10 @@ func TestDefaultArgsForShellWindows(t *testing.T) {
 	}
 }
 
-func TestSetProcessGroupDisablesConsoleWindow(t *testing.T) {
+func TestNewProcGroupDisablesConsoleWindow(t *testing.T) {
 	cmd := exec.Command("cmd.exe", "/c", "exit 0")
 
-	setProcessGroup(cmd)
+	newProcGroup(cmd)
 
 	if cmd.SysProcAttr == nil {
 		t.Fatal("SysProcAttr is nil")

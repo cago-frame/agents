@@ -39,6 +39,7 @@ type Job struct {
 
 	mu       sync.Mutex
 	cmd      *exec.Cmd
+	group    *procGroup
 	output   bytes.Buffer
 	cursor   int
 	status   JobStatus
@@ -127,13 +128,13 @@ func (j *Job) Kill() error {
 		return nil
 	}
 	j.killed = true
-	cmd := j.cmd
+	group := j.group
 	cancel := j.cancel
 	j.mu.Unlock()
 	if cancel != nil {
 		cancel()
 	}
-	return killGroup(cmd)
+	return group.kill()
 }
 
 // List 列出全部任务（最近启动的在前）。
