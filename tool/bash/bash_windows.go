@@ -76,13 +76,14 @@ func (g *procGroup) started() {
 	g.mu.Unlock()
 }
 
-// kill ends every process in the job (the shell and its descendants).
+// kill ends every process in the job (the shell and its descendants). The lock is held
+// across TerminateJobObject: Job.Kill can race the background waiter's release, and a
+// handle closed (and possibly reused) in between must never be terminated.
 func (g *procGroup) kill() error {
 	g.mu.Lock()
-	job := g.job
-	g.mu.Unlock()
-	if job != 0 {
-		return windows.TerminateJobObject(job, 1)
+	defer g.mu.Unlock()
+	if g.job != 0 {
+		return windows.TerminateJobObject(g.job, 1)
 	}
 	if g.cmd.Process == nil {
 		return nil
